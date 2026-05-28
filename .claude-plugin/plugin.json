@@ -1,0 +1,24 @@
+{
+  "name": "hyperliquid-trading-agent",
+  "version": "0.2.2",
+  "description": "Trade perpetual futures on Hyperliquid directly from Claude. Wraps the upstream sanketagarwal/hyperliquid-trading-agent repo as an MCP server + skills + commands. Dry-run by default; flip LIVE_TRADING=true to go live. Hard-coded risk guards (position size, leverage, exposure, daily drawdown, mandatory SL) run on every trade.",
+  "author": {
+    "name": "adapted from sanketagarwal/hyperliquid-trading-agent"
+  },
+  "homepage": "https://github.com/sanketagarwal/hyperliquid-trading-agent",
+  "license": "MIT",
+  "keywords": ["hyperliquid", "trading", "perp", "futures", "crypto", "mcp"],
+  "mcpServers": {
+    "hyperliquid-trading-agent": {
+      "command": "python3",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp_server/bootstrap.py"
+      ],
+      "env": {
+        "HYPERLIQUID_PLUGIN_ENV": "${CLAUDE_PLUGIN_ROOT}/.env"
+      }
+    }
+  },
+  "skills": ["./skills/setup", "./skills/market-analysis", "./skills/trade-cycle", "./skills/portfolio-review", "./skills/risk-audit"],
+  "commands": ["./commands"]
+}

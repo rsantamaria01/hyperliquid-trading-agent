@@ -1,0 +1,32 @@
+# Secrets — never commit
+.env
+*.env
+!.env.example
+
+# Built artifact (ship as GitHub Release, not in repo)
+*.plugin
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+mcp_server/.venv/
+mcp_server/.deps-installed
+*.egg-info/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local notes / scratch
+runtime.env
+*.local.md

@@ -1,0 +1,22 @@
+[project]
+name = "hyperliquid-trading-mcp"
+version = "0.1.0"
+description = "MCP server exposing Hyperliquid perp trading + indicators + risk guards to Claude"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp>=1.0.0",
+  "hyperliquid-python-sdk>=0.20.0,<0.21.0",
+  "eth-account>=0.13.0",
+  "python-dotenv>=1.0.0",
+  "websocket-client>=1.6.0",
+]
+
+[project.scripts]
+hyperliquid-trading-mcp = "mcp_server.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mcp_server"]
