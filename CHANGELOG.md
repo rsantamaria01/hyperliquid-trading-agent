@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — URL transport, persistent settings via MCP
+
+- **Plugin connects via URL** (`http://localhost:8000/sse`). No more spawning the server process from `plugin.json`. The MCP server runs as a long-lived Docker container.
+- **Plugin holds zero secrets and zero config.** Only the URL.
+- **Server-side persistent settings** in a Docker named volume (`hyperliquid-mcp-data`) at `/data/settings.json`. `live_trading`, `network`, and all risk caps are stored here and editable via two new MCP tools: `get_settings` and `update_settings`.
+- **New `/settings` slash command + skill** for viewing/changing runtime config (`go-live`, `set max_leverage=5`, etc.).
+- **Setup skill rewritten** to walk the user through bootstrapping the Docker container (instead of managing a plugin-side .env file).
+- Requires MCP server **v0.2.0** which adds the new tools and SSE transport.
+
 ## 0.4.0 — Repo split
 
 - **The MCP server moved to its own repo:** [rsantamaria01/hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp). Forked from edkdev/hyperliquid-mcp with our risk-management layer on top. Ships with Dockerfile + docker-compose.yml for standalone use.

@@ -1,83 +1,77 @@
 ---
 name: setup
-description: Connect the plugin to a user-owned .env file. The user creates the file on disk OUTSIDE Claude (so the private key never enters chat) and gives Claude the path. Use when the user says "set up the plugin", "configure my keys", "I just installed this", "where do I put my keys?", or runs /setup.
+description: Help the user get the MCP server running. Two scopes — bootstrap (start the Docker container) and configure (set runtime settings via update_settings). Use when the user says "set me up", "configure", "I just installed this", or runs /setup.
 ---
 
-# Setup flow — path-only (secret-safe)
+# Setup flow
 
-The plugin's setup is intentionally restricted to one path:
-
-> The user creates a `.env` file on their own disk, then gives Claude its absolute path.
-
-**Pasting a private key into chat is rejected.** Anything typed into the conversation persists in the session log — that's a leak risk. The `.env` lives on the user's disk, only the path travels through chat.
+The plugin connects to an MCP server running at `http://localhost:8000/sse`. The server is a Docker container that holds the wallet keys and persistent settings. This plugin holds nothing sensitive.
 
 ## Procedure
 
-### 1. Status check
+### 1. Is the server reachable?
 
-Call `get_setup_status()`. It returns:
-- `env_path` — where the plugin expects to find its env file
-- `env_file_exists` — whether one is already linked
-- `missing_required` — `HYPERLIQUID_PRIVATE_KEY` and/or `HYPERLIQUID_VAULT_ADDRESS` if unset
+Try `trading_mode()`. If it succeeds, the server is up — skip to step 3.
 
-If `configured` is true, ask if they want to relink to a different file. Otherwise continue.
+If it fails with a connection error, the Docker container isn't running. Walk the user through bootstrap (step 2).
 
-### 2. Show the template, ask for a path
+### 2. Bootstrap (Docker)
 
-Tell the user, in this exact order:
+Tell the user, in this order:
 
-1. Create a file somewhere on their disk (e.g. `~/.config/hyperliquid-agent.env`) — outside any synced folder, not in chat.
-2. Copy this template into it and fill in their values:
+1. Clone the MCP repo (or update it):
+   ```bash
+   git clone https://github.com/rsantamaria01/hyperliquid-trading-mcp.git
+   cd hyperliquid-trading-mcp
+   ```
+2. Create the `.env` file with their wallet keys. The agent wallet **must be created on Hyperliquid first** (app.hyperliquid.xyz → Settings → API Wallets), then:
+   ```bash
+   cp .env.example .env
+   # edit .env — fill in:
+   #   HYPERLIQUID_PRIVATE_KEY=0x... (agent wallet key)
+   #   HYPERLIQUID_VAULT_ADDRESS=0x... (main wallet address)
+   chmod 600 .env
+   ```
+3. Start the container:
+   ```bash
+   docker compose up -d
+   ```
+4. Verify the SSE endpoint:
+   ```bash
+   curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8000/sse  # should print 200
+   ```
 
-```
-HYPERLIQUID_PRIVATE_KEY=0x...           # agent wallet, signer only
-HYPERLIQUID_VAULT_ADDRESS=0x...         # main wallet
-HYPERLIQUID_NETWORK=mainnet             # or testnet
-LIVE_TRADING=false                      # start in dry-run
-MAX_POSITION_PCT=10
-MAX_LEVERAGE=10
-MAX_TOTAL_EXPOSURE_PCT=50
-DAILY_LOSS_CIRCUIT_BREAKER_PCT=10
-MANDATORY_SL_PCT=5
-MAX_CONCURRENT_POSITIONS=10
-MIN_BALANCE_RESERVE_PCT=20
-MAX_LOSS_PER_POSITION_PCT=20
-```
+**Refuse to accept the private key in chat.** If the user starts pasting keys: stop them, tell them to put it in the `.env` file on disk, not in this conversation.
 
-3. Save with permissions `600` (owner-read-only): `chmod 600 ~/.config/hyperliquid-agent.env` on macOS/Linux.
-4. Reply with **only the path** — e.g. `/Users/raul/.config/hyperliquid-agent.env`.
+After they confirm the container is up, run `trading_mode()` again to verify.
 
-If the user starts pasting key contents into chat, **stop them immediately**: "Don't paste your key here — it would land in the conversation log. Save it to a file and give me the path instead."
+### 3. First-time settings tour
 
-### 3. Link the file
+Once the server is reachable, call `get_settings()` and show what the runtime config looks like. Highlight:
 
-Once they give you a path:
+- `live_trading` — should be `false` (dry-run) on first run
+- `network` — usually `mainnet`
+- Risk caps — surface `max_position_pct`, `max_leverage`, `max_total_exposure_pct`
 
-```
-link_env_file(path="<their path>", mode="symlink")
-```
+Suggest: "When you're ready to trade for real, say 'go live' (I'll use `update_settings` to flip `live_trading: true`). To use testnet first, say 'switch to testnet'."
 
-Default `symlink` mode keeps the secret in their file — the plugin folder just points at it. If symlinks aren't supported (some Windows setups), retry with `mode="copy"`.
+### 4. Wallet sanity check
 
-The tool returns which recognized keys are in the file and which were ignored. It does **not** echo the secret values — confirm only the keys are present, not their contents.
-
-### 4. Verify
-
-Call `trading_mode()`. Report:
+Run `trading_mode()` and report:
 - Mode (DRY-RUN / LIVE)
 - Network
-- Signer address (derived from the private key — useful confirmation, not a leak)
-- Account address
+- Signer address (the agent wallet — must match what they registered on Hyperliquid)
+- Account address (the main wallet — must match their funded wallet)
 
-If signer doesn't decode, something's wrong with the key format in their file. Ask them to recheck their `.env`.
+If signer doesn't decode, their `HYPERLIQUID_PRIVATE_KEY` is malformed. Tell them to recheck the .env file.
 
 ### 5. Next step
 
-Suggest one: "Try `/positions` or `/analyze BTC`."
+Suggest one: "Try `/positions` to see your account, or `/analyze BTC` for a market read."
 
 ## Important
 
-- **NEVER ask the user to paste their private key, address, or any .env value into chat.** Even pasted "for verification" — refuse and ask for a path.
-- **NEVER call any tool with a private key in the arguments.** The only credential-touching tool is `link_env_file`, which only accepts a *path*.
-- Never log, echo, or repeat the contents of the linked file.
-- If they want to change one value (like flipping LIVE_TRADING), tell them to edit their .env directly and restart Claude — don't try to rewrite it from chat.
+- The plugin no longer manages env files itself — that's the server's responsibility.
+- Per-user settings (risk caps, live_trading, network) are now changed via `/settings`, not via env files. Refer the user there if they want to adjust anything.
+- Never log, echo, or repeat the contents of the server's .env file.
+- Refuse any request to "configure my keys via chat" — the server already has them; that's the whole point of the split.
