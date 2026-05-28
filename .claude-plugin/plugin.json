@@ -1,24 +1,26 @@
 {
   "name": "hyperliquid-trading-agent",
-  "version": "0.2.2",
-  "description": "Trade perpetual futures on Hyperliquid directly from Claude. Wraps the upstream sanketagarwal/hyperliquid-trading-agent repo as an MCP server + skills + commands. Dry-run by default; flip LIVE_TRADING=true to go live. Hard-coded risk guards (position size, leverage, exposure, daily drawdown, mandatory SL) run on every trade.",
+  "version": "0.4.0",
+  "description": "Claude plugin: skills, strategies, and slash commands for trading Hyperliquid perpetuals. The MCP server lives in a separate repo (rsantamaria01/hyperliquid-trading-mcp) — this plugin only ships the Claude-facing layer.",
   "author": {
-    "name": "adapted from sanketagarwal/hyperliquid-trading-agent"
+    "name": "Raul Santamaria"
   },
-  "homepage": "https://github.com/sanketagarwal/hyperliquid-trading-agent",
+  "homepage": "https://github.com/rsantamaria01/hyperliquid-trading-agent",
   "license": "MIT",
   "keywords": ["hyperliquid", "trading", "perp", "futures", "crypto", "mcp"],
   "mcpServers": {
     "hyperliquid-trading-agent": {
-      "command": "python3",
+      "command": "uvx",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/mcp_server/bootstrap.py"
+        "--from",
+        "git+https://github.com/rsantamaria01/hyperliquid-trading-mcp",
+        "hyperliquid-trading-mcp"
       ],
       "env": {
-        "HYPERLIQUID_PLUGIN_ENV": "${CLAUDE_PLUGIN_ROOT}/.env"
+        "HYPERLIQUID_PLUGIN_ENV": "${HOME}/.config/hyperliquid-mcp/.env"
       }
     }
   },
-  "skills": ["./skills/setup", "./skills/market-analysis", "./skills/trade-cycle", "./skills/portfolio-review", "./skills/risk-audit"],
+  "skills": ["./skills/setup", "./skills/strategy", "./skills/market-analysis", "./skills/trade-cycle", "./skills/portfolio-review", "./skills/risk-audit"],
   "commands": ["./commands"]
 }

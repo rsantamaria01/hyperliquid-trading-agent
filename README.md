@@ -1,116 +1,121 @@
 # Hyperliquid Trading Agent — Claude plugin
 
-Trade Hyperliquid perpetuals directly from a Claude conversation, in Cowork or Claude Code. Get market reads, run a full trade cycle, review your portfolio, audit your risk — all via slash commands. No standalone Python loop, no `ANTHROPIC_API_KEY` required.
+A Cowork / Claude Code plugin for trading Hyperliquid perpetuals via natural language. Ships **skills, strategies, and slash commands** — the actual MCP server lives in a separate repo.
 
-> **Credits:** trading logic, indicators, and risk-guard design adapted from [sanketagarwal/hyperliquid-trading-agent](https://github.com/sanketagarwal/hyperliquid-trading-agent) (MIT). Architecture inverted into an MCP server + skills so Claude drives the loop instead of being called from one.
+> **Architecture:** Two repos, clean split.
+> - **MCP server** (Python, Docker-ready): [rsantamaria01/hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp) — generic Hyperliquid interface with hard-coded risk guards. Forked from [edkdev/hyperliquid-mcp](https://github.com/edkdev/hyperliquid-mcp), risk layer adapted from [sanketagarwal/hyperliquid-trading-agent](https://github.com/sanketagarwal/hyperliquid-trading-agent).
+> - **This plugin**: Claude-specific layer — skills, strategies, slash commands.
 
-> ⚠️ **Live exchange. Real money.** Not audited. Use at your own risk. Start in dry-run mode (default). See `LICENSE`.
+> ⚠️ **Live exchange. Real money.** Not audited. Use at your own risk. Default is dry-run.
 
-## Quick install — 2 steps
+## What's in this plugin
 
-The plugin self-installs its Python dependencies the first time it runs into a venv inside its own folder. **You don't need `pip`, `uv`, or any extra setup** — just Python 3.10+, which is already on macOS and Linux. On Debian/Ubuntu, also make sure `python3-venv` is installed (`sudo apt install python3-venv`).
+```
+.claude-plugin/plugin.json    # registers the external MCP + skills + commands
+skills/
+  setup/                       # /setup — link your .env file
+  strategy/                    # /strategy — pick or describe a strategy
+  market-analysis/             # /analyze — read setups on assets
+  trade-cycle/                 # /trade-cycle — one full loop iteration
+  portfolio-review/            # /positions — review open positions
+  risk-audit/                  # /risk-audit — check risk posture
+commands/                     # slash command shells that invoke the skills
+strategies/                   # pluggable .md strategy definitions
+  breakout-bb.md
+  trend-pullback.md
+  mean-reversion-rsi.md
+  range-fade.md
+```
 
-### 1. Install the plugin
+## Install
 
-Download the latest `hyperliquid-trading-agent.plugin` from the [releases page](https://github.com/rsantamaria01/hyperliquid-trading-agent/releases).
+### 1. Install `uv` (one-time)
 
-**Cowork:** open the `.plugin` file (or drag it into the Cowork install dialog). Cowork drops it into your plugins directory.
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-**Claude Code:** unzip the `.plugin` file into a directory and add it to your plugin path, or place it under `~/.claude/plugins/hyperliquid-trading-agent/`.
+The plugin uses `uvx` to launch the MCP server. `uvx` clones and installs the server on first run; subsequent runs are instant.
 
-### 2. Configure — `/setup`
+### 2. Configure your `.env`
 
-**Your private key never goes through chat.** Setup is path-only:
+```bash
+mkdir -p ~/.config/hyperliquid-mcp
+cp <wherever you have your .env> ~/.config/hyperliquid-mcp/.env
+chmod 600 ~/.config/hyperliquid-mcp/.env
+```
 
-1. Create `.env` somewhere on your disk (e.g. `~/.config/hyperliquid-agent.env`) using `.env.example` as a template. Fill in your keys.
-2. Lock it down: `chmod 600 ~/.config/hyperliquid-agent.env`
-3. In Claude, run `/setup` and give it the path. Claude will symlink the plugin to your file via the `link_env_file` MCP tool and verify the connection with `trading_mode`.
+See [hyperliquid-trading-mcp/.env.example](https://github.com/rsantamaria01/hyperliquid-trading-mcp/blob/main/.env.example) for the full field list.
 
-That's it. The plugin reads from your file each time it starts. To change settings, edit your `.env` directly and restart Claude.
+The minimum:
+```
+HYPERLIQUID_PRIVATE_KEY=0x...     # agent wallet private key (signer)
+HYPERLIQUID_VAULT_ADDRESS=0x...   # main wallet address (funded)
+LIVE_TRADING=false
+```
 
-Pasting key contents into chat is rejected — the conversation log is a leak vector. The path is the only thing that travels through chat.
+### 3. Install the plugin in Cowork
 
-**First-run note:** the very first MCP call after install takes ~30 seconds — the plugin is creating a venv and installing Python deps. After that it's instant. Check `~/.config/Claude/plugins/hyperliquid-trading-agent/mcp_server/.venv/` to confirm the cache built.
+Download `hyperliquid-trading-agent.plugin` from the [releases page](https://github.com/rsantamaria01/hyperliquid-trading-agent/releases) and open it (or drag into Cowork's install dialog).
 
-That's it. The first time the MCP server runs, `uvx` installs Python deps in an isolated cache — takes ~20 seconds. After that it's instant.
+Restart Cowork after install so the MCP server registers.
 
-## Where is "the root of the installed plugin folder"?
+## Alternative: Docker for the MCP
 
-After install, the plugin lives at one of these paths:
+If you'd rather run the MCP server as a Docker container instead of via `uvx`:
 
-- **Cowork (macOS):** `~/Library/Application Support/Claude/plugins/hyperliquid-trading-agent/`
-- **Cowork (Linux):** `~/.config/Claude/plugins/hyperliquid-trading-agent/`
-- **Cowork (Windows):** `%APPDATA%\Claude\plugins\hyperliquid-trading-agent\`
-- **Claude Code:** wherever you placed the unzipped folder (e.g. `~/.claude/plugins/hyperliquid-trading-agent/`)
+```bash
+git clone https://github.com/rsantamaria01/hyperliquid-trading-mcp.git
+cd hyperliquid-trading-mcp
+cp .env.example .env  # fill in
+docker compose build
+```
 
-The `.env` file goes directly inside that folder — at the same level as `.claude-plugin/` and `mcp_server/`. You can also point to a different `.env` location by setting `HYPERLIQUID_PLUGIN_ENV=/path/to/your.env` in your shell.
+Then edit `.claude-plugin/plugin.json` in the installed plugin folder, changing the `mcpServers` block to:
 
-## How to get a Hyperliquid agent wallet
-
-1. Go to [app.hyperliquid.xyz](https://app.hyperliquid.xyz) → Settings → API Wallets
-2. Add a new API wallet — save the private key (this becomes `HYPERLIQUID_PRIVATE_KEY`)
-3. Your main wallet address is `HYPERLIQUID_VAULT_ADDRESS`
-
-The agent wallet **signs trades** on behalf of the main wallet. It cannot withdraw funds.
+```json
+"mcpServers": {
+  "hyperliquid-trading-agent": {
+    "command": "docker",
+    "args": ["run", "--rm", "-i", "--env-file", "/absolute/path/to/.env", "rsantamaria01/hyperliquid-trading-mcp:latest"]
+  }
+}
+```
 
 ## Use
 
-After install, in Claude:
-
 ```
-/trading-mode                              # confirm DRY-RUN vs LIVE + which wallet
-/analyze BTC ETH SOL --interval 1h         # market read
+/setup ~/.config/hyperliquid-mcp/.env      # link your env file
+/trading-mode                              # confirm DRY-RUN vs LIVE
+/strategy                                  # list available strategies
+/analyze BTC ETH --interval 1h             # market read
+/trade-cycle BTC ETH --interval 5m         # one loop iteration (default heuristics)
+/trade-cycle BTC ETH --strategy breakout-bb  # use a specific strategy
 /positions                                 # portfolio review
-/risk-audit                                # risk check
-/trade-cycle BTC ETH SOL                   # one full loop iteration
+/risk-audit                                # risk posture
+/cancel BTC                                # cancel all BTC orders
 ```
 
-Or natural language: "analyze BTC on the 4h", "what's my PnL?", "close my ETH position".
+Or natural language: "analyze BTC on the 4h", "use the mean-reversion strategy on SOL", "close my ETH position".
+
+## Adding strategies
+
+Drop a new `.md` file in `strategies/` with the frontmatter and sections documented in [strategies/README.md](./strategies/README.md). Then `/trade-cycle ASSETS --strategy <your-name>`.
 
 ## Going live
 
-1. Run several `/trade-cycle` iterations with `LIVE_TRADING=false`. Verify the trades look right.
-2. Edit `.env`: `LIVE_TRADING=true`.
-3. Restart Claude so the MCP server reloads.
-4. `/trading-mode` should now report `LIVE`.
-5. Start conservative — `MAX_POSITION_PCT=5`, `MAX_LEVERAGE=3` — until you trust it.
+1. Run a few cycles in dry-run. Verify the plan and execution flow look right.
+2. Edit your `.env` and set `LIVE_TRADING=true`.
+3. Restart Cowork.
+4. `/trading-mode` should now report LIVE.
+5. Start with conservative risk caps (`MAX_POSITION_PCT=5`, `MAX_LEVERAGE=3`) until you trust the setup.
 
-## Autonomous mode (Cowork only)
+## Autonomous mode (Cowork scheduled tasks)
 
-To replicate the upstream's interval loop:
-
-1. Set `LIVE_TRADING=true` in `.env`.
-2. Create a Cowork scheduled task with cron `*/15 * * * *` and prompt:
-   > Run the trade-cycle skill on BTC ETH SOL with interval 5m. Report what you did.
-
-## What the plugin exposes
-
-**Market data**: `get_current_price`, `get_candles`, `get_market_context`
-**Account**: `get_account_state`, `get_open_orders`, `get_recent_fills`
-**Risk**: `get_risk_limits`, `check_losing_positions`, `validate_trade`
-**Orders**: `place_market_order`, `place_limit_order`, `close_position`, `force_close_losing_positions`, `set_stop_loss`, `set_take_profit`, `cancel_order`, `cancel_all_orders`
-**Meta**: `trading_mode`
-
-Every order tool checks `LIVE_TRADING`. Dry-run returns a simulated response — safe for testing.
-
-## Safety
-
-- Risk guards (position size, leverage, exposure, daily drawdown, mandatory SL) are enforced in code before any SDK call. The LLM cannot override them.
-- Private key never leaves your machine. The MCP server runs locally.
-- Not audited. Trade at your own risk.
-
-## Troubleshooting
-
-**Plugin tools don't appear after restart:**
-- Check that `python3` is reachable. In a terminal: `python3 --version`. If missing, install it.
-- On Debian/Ubuntu, also need `sudo apt install python3-venv` for the bootstrap to create its venv.
-- Inspect bootstrap output: tail Cowork's log (typically `~/.config/Claude/logs/`) for lines tagged `[hyperliquid-mcp bootstrap]`.
-
-**Wipe the cache and reinstall deps:**
-```bash
-rm -rf ~/.config/Claude/plugins/hyperliquid-trading-agent/mcp_server/.venv
 ```
-Next restart, the bootstrap recreates it.
+cron: */15 * * * *
+prompt: Run trade-cycle on BTC ETH SOL with interval 5m using the breakout-bb strategy. Execute approved trades automatically. Report what you did.
+```
 
 ## License
 

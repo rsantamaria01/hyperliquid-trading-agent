@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — Repo split
+
+- **The MCP server moved to its own repo:** [rsantamaria01/hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp). Forked from edkdev/hyperliquid-mcp with our risk-management layer on top. Ships with Dockerfile + docker-compose.yml for standalone use.
+- This plugin now contains **only** the Claude-facing layer: skills, strategies, slash commands.
+- `plugin.json` references the external MCP via `uvx --from git+...` (default) or `docker run` (alternative).
+- No more `mcp_server/` folder, no more `bootstrap.py` — install path is much cleaner.
+
 ## 0.3.4
 
 - **Atomic limit-with-brackets** — borrowed the pattern from [edkdev/hyperliquid-mcp](https://github.com/edkdev/hyperliquid-mcp): submit entry + SL + TP as one `bulk_orders([...])` call with default grouping. Reduce-only triggers can't fire before the entry fills, so we get the same effective protection as `grouping="normalTpsl"` without needing the kwarg (which doesn't exist in SDK 0.20.x). One HTTP request, one signature.
