@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.4
+
+- **Atomic limit-with-brackets** — borrowed the pattern from [edkdev/hyperliquid-mcp](https://github.com/edkdev/hyperliquid-mcp): submit entry + SL + TP as one `bulk_orders([...])` call with default grouping. Reduce-only triggers can't fire before the entry fills, so we get the same effective protection as `grouping="normalTpsl"` without needing the kwarg (which doesn't exist in SDK 0.20.x). One HTTP request, one signature.
+
+## 0.3.3
+
+- Hotfix for v0.3.2: `bulk_orders` in the pinned SDK version (0.20.x) doesn't expose the `grouping` kwarg needed for atomic `normalTpsl` brackets. Switched limit orders to a 3-step sequential placement (entry, then reduce-only SL trigger, then reduce-only TP trigger). The SL and TP land within ~1 second of the entry — not perfectly atomic, but reliable across SDK versions and well below any meaningful price-movement window.
+
+## 0.3.2
+
+- Hotfix for v0.3.1: `place_limit_order` was passing `grouping` as a positional argument to the SDK's `bulk_orders`, which actually mapped to `builder`. Result was `"string indices must be integers, not 'str'"` at order time. Now passed as a kwarg, which is what the SDK expects.
+
+## 0.3.1
+
+- **Limit orders now ship with SL/TP brackets atomically.** `place_limit_order` accepts `sl_price` and `tp_price` and submits all three orders as one `normalTpsl` group via Hyperliquid's `bulk_orders`. The SL/TP triggers stay dormant until the limit fills, then activate as reduce-only. No window of unbracketed exposure between fill and bracket attachment.
+- Updated `trade-cycle` skill to pass SL/TP into `place_limit_order` for limit-entry strategies.
+
+## 0.3.0
+
+- **Strategies system.** New `strategies/` folder with pluggable `.md` strategy definitions. Ship with four built-ins: `breakout-bb`, `trend-pullback`, `mean-reversion-rsi`, `range-fade`. Each defines setup, entry conditions, SL/TP rules, sizing, and "when NOT to use." Users can add their own by dropping new `.md` files in the folder.
+- **`/strategy` slash command** + `strategy` skill — lists available strategies, shows full rules for one, helps draft new ones.
+- **Limit-entry support in `/trade-cycle`**. Strategies declare `entry_type: market | limit | both` in frontmatter. The trade-cycle skill uses `place_limit_order` when the strategy says limit, including computing the limit price from indicators (e.g. "limit at EMA20"). The hard-coded risk manager still applies.
+- **`/trade-cycle` now accepts `--strategy <name>`** to apply a strategy's rules instead of the default heuristics.
+
 ## 0.2.2
 
 - Enforce `MAX_LEVERAGE` on the exchange before opening positions. The plugin now calls `update_leverage(MAX_LEVERAGE, asset)` before every entry so the actual position respects the configured cap. Previously `MAX_LEVERAGE` was only a notional/balance math check and Hyperliquid used the account default (often 20x on majors).

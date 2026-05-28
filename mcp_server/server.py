@@ -309,12 +309,28 @@ async def place_limit_order(
     side: str,
     allocation_usd: float,
     limit_price: float,
+    sl_price: Optional[float] = None,
+    tp_price: Optional[float] = None,
     tif: str = "Gtc",
 ) -> dict:
-    """Place a limit order. Runs risk validation first.
+    """Place a limit order, optionally with SL and TP brackets attached.
+
+    When sl_price and/or tp_price are provided, all orders are submitted as one
+    atomic bracket group using Hyperliquid's "normalTpsl" grouping. The SL/TP
+    triggers stay dormant until the limit fills, then activate as reduce-only
+    market triggers. So the position is protected the moment it opens — no
+    window of unbracketed exposure.
+
+    The mandatory SL guard still applies: if sl_price is None, the risk manager
+    auto-fills one at MANDATORY_SL_PCT from the limit price.
 
     Args:
-        side: "buy" or "sell"
+        asset: Symbol
+        side: "buy" / "long" / "sell" / "short"
+        allocation_usd: Notional USD
+        limit_price: Entry price for the limit
+        sl_price: Optional stop-loss; auto-set if omitted
+        tp_price: Optional take-profit
         tif: "Gtc" (good-til-cancel), "Ioc" (immediate-or-cancel), "Alo" (post-only)
     """
     canonical = _normalize_side(side)
@@ -327,19 +343,42 @@ async def place_limit_order(
     trade = {
         "asset": asset, "action": canonical,
         "allocation_usd": allocation_usd, "current_price": limit_price,
+        "sl_price": sl_price, "tp_price": tp_price,
     }
     ok, reason, adjusted = risk.validate_trade(trade, state)
     if not ok:
         return {"status": "rejected", "reason": reason, "mode": _mode_tag()}
     size = adjusted["allocation_usd"] / limit_price
+    is_buy = canonical == "buy"
+
     if not LIVE_TRADING:
         return {
             "status": "ok", "mode": "DRY-RUN",
-            "simulated_order": {"asset": asset, "side": canonical, "size": size, "limit_price": limit_price, "tif": tif, "would_set_leverage": int(risk.max_leverage)},
+            "simulated_order": {
+                "asset": asset, "side": canonical, "size": size,
+                "limit_price": limit_price,
+                "sl_price": adjusted.get("sl_price"),
+                "tp_price": adjusted.get("tp_price"),
+                "tif": tif,
+                "would_set_leverage": int(risk.max_leverage),
+                "bracket_group": "normalTpsl" if (adjusted.get("sl_price") or adjusted.get("tp_price")) else "na",
+            },
         }
+
     lev_resp = await client.update_leverage(asset, int(risk.max_leverage), is_cross=True)
-    resp = await client.limit_order(asset, canonical == "buy", size, limit_price, tif)
-    return {"status": "ok", "mode": "LIVE", "leverage_set": int(risk.max_leverage), "leverage_response": lev_resp, "order": resp}
+    resp = await client.limit_order_with_brackets(
+        asset, is_buy, size, limit_price,
+        sl_price=adjusted.get("sl_price"),
+        tp_price=adjusted.get("tp_price"),
+        tif=tif,
+    )
+    return {
+        "status": "ok", "mode": "LIVE",
+        "leverage_set": int(risk.max_leverage),
+        "leverage_response": lev_resp,
+        "brackets_attached": bool(adjusted.get("sl_price") or adjusted.get("tp_price")),
+        "order": resp,
+    }
 
 
 @mcp.tool()

@@ -234,6 +234,61 @@ class HyperliquidClient:
         limit_price = await self.round_price(asset, limit_price)
         return await self._run(self.exchange.order, asset, is_buy, size, limit_price, {"limit": {"tif": tif}})
 
+    async def limit_order_with_brackets(
+        self,
+        asset: str,
+        is_buy: bool,
+        size: float,
+        limit_price: float,
+        sl_price: float | None = None,
+        tp_price: float | None = None,
+        tif: str = "Gtc",
+    ) -> Any:
+        """Submit a limit entry plus optional SL/TP brackets as one atomic batch.
+
+        Sends all orders in a single `bulk_orders()` call (SDK default
+        `grouping="na"`). The SL and TP are reduce-only triggers — they sit
+        on the exchange and can't fire until the entry fills. Same pattern
+        edkdev/hyperliquid-mcp uses successfully.
+
+        Returns the raw bulk_orders response with statuses for each leg.
+        """
+        size = await self.round_size(asset, size)
+        limit_price = await self.round_price(asset, limit_price)
+
+        orders: list[dict] = [
+            {
+                "coin": asset,
+                "is_buy": is_buy,
+                "sz": size,
+                "limit_px": limit_price,
+                "order_type": {"limit": {"tif": tif}},
+                "reduce_only": False,
+            }
+        ]
+        if tp_price is not None:
+            tp_price = await self.round_price(asset, tp_price)
+            orders.append({
+                "coin": asset,
+                "is_buy": not is_buy,
+                "sz": size,
+                "limit_px": tp_price,
+                "order_type": {"trigger": {"triggerPx": tp_price, "isMarket": True, "tpsl": "tp"}},
+                "reduce_only": True,
+            })
+        if sl_price is not None:
+            sl_price = await self.round_price(asset, sl_price)
+            orders.append({
+                "coin": asset,
+                "is_buy": not is_buy,
+                "sz": size,
+                "limit_px": sl_price,
+                "order_type": {"trigger": {"triggerPx": sl_price, "isMarket": True, "tpsl": "sl"}},
+                "reduce_only": True,
+            })
+
+        return await self._run(lambda: self.exchange.bulk_orders(orders))
+
     async def place_stop_loss(self, asset: str, is_buy: bool, size: float, sl_price: float) -> Any:
         size = await self.round_size(asset, size)
         sl_price = await self.round_price(asset, sl_price)
