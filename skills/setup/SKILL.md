@@ -5,12 +5,23 @@ description: Help the user get the MCP server running. Two scopes — bootstrap 
 
 # Setup flow
 
-The plugin connects to the MCP server over **Streamable HTTP at `/mcp`**. It defaults to `http://localhost:8000/mcp`; two env vars (read from the shell where Claude Code / Cowork launches) override the connection:
+The plugin connects to the MCP server over **Streamable HTTP**, default `http://localhost:8000/mcp` (set in `plugin.json`). The server is a Docker container that holds the wallet keys and persistent settings; this plugin holds nothing sensitive.
 
-- `HL_MCP_URL` — full server URL. Set this to `http://<host-ip>:8000/mcp` when the server runs on another machine.
-- `HL_MCP_TOKEN` — bearer token sent as `Authorization: Bearer <token>`. **Must equal the server's `MCP_AUTH_TOKEN`.** Leave it unset only when the server runs without a token (local-only).
+**Reaching a remote server / sending an auth token depends on the client — and Cowork is limited:**
 
-The server is a Docker container that holds the wallet keys and persistent settings. This plugin holds nothing sensitive — including the token, which lives in the user's shell env, not in the plugin.
+- **Claude Code (CLI)** — register your server with `claude mcp add`. Using the same name (`hyperliquid-trading-agent`) makes it take precedence over the plugin's localhost default; static bearer headers are supported:
+  ```bash
+  claude mcp add --transport http --scope user \
+    hyperliquid-trading-agent https://your-domain/mcp \
+    --header "Authorization: Bearer <MCP_AUTH_TOKEN>"
+  ```
+  (Token-less local server: drop the `--header`. OAuth server: omit `--header` and run `/mcp` to authenticate.) Equivalent hand-edit lives in `~/.claude.json`; `${VAR}` expansion works there (unlike in plugin.json).
+- **Cowork (desktop)** — **Add custom connector** (name it `hyperliquid-trading-agent`, set the URL to your server, e.g. `https://your-domain/mcp`). The connector UI supports **only OAuth — no static bearer token or custom headers** — so Cowork itself can't send `Authorization: Bearer`. To use a token-protected server, the token must come from somewhere other than Cowork:
+  1. **Reverse proxy injects the token (best if you already serve the MCP behind an HTTPS domain).** Cowork → `https://your-domain/mcp` with no auth header; the proxy adds `Authorization: Bearer <token>` upstream to the MCP server. Keep the token in the proxy config (never in Cowork or the repo), and protect the public endpoint itself with Cloudflare Access / an IP allowlist / proxy basic-auth.
+  2. **SSH tunnel + token off.** Bind the server to `127.0.0.1`, leave `MCP_AUTH_TOKEN` unset, and `ssh -N -L 8000:127.0.0.1:8000 user@server` from the Cowork machine. The default `http://localhost:8000/mcp` then works; SSH is the encryption + auth.
+  3. **Local token-injecting proxy.** Same idea as (1) but the proxy runs on the Cowork machine; point Cowork at the local proxy URL.
+
+Do not rely on `${VAR}` expansion in `plugin.json` — it is not applied for plugin-bundled MCP servers.
 
 ## Procedure
 
@@ -18,8 +29,8 @@ The server is a Docker container that holds the wallet keys and persistent setti
 
 Try `trading_mode()`. If it succeeds, the server is up — skip to step 3.
 
-- **Connection error / refused** → the Docker container isn't running (or `HL_MCP_URL` points at the wrong host). Walk the user through bootstrap (step 2).
-- **401 / unauthorized** → the server requires a token but `HL_MCP_TOKEN` is unset or doesn't match the server's `MCP_AUTH_TOKEN`. Have them export the correct token (step 2.4) and relaunch.
+- **Connection error / refused** → the container isn't running, or the client points at the wrong host (remote server not tunnelled/overridden — see the connection note above). Walk the user through bootstrap (step 2).
+- **401 / unauthorized** → the server requires a token the client isn't sending. On CLI, add the `Authorization` header in `~/.claude.json`; on Cowork, use the SSH-tunnel-with-token-off or local-proxy path above. Then restart the client.
 
 ### 2. Bootstrap (Docker)
 
@@ -39,20 +50,16 @@ Tell the user, in this order:
    #   MCP_AUTH_TOKEN=...            (a long random string; see note below)
    chmod 600 .env
    ```
-   For `MCP_AUTH_TOKEN`, generate a strong value with `openssl rand -hex 32`. The port is exposed on all interfaces, so this token is the access guard — required unless the server is bound to localhost only.
+   For `MCP_AUTH_TOKEN`, generate a strong value with `openssl rand -hex 32`. It is the access guard whenever the port is reachable beyond localhost. **If the user is on Cowork, prefer leaving it unset and using an SSH tunnel** (see the connection note above), since Cowork can't send a token.
 3. Start the container:
    ```bash
    docker compose up -d
    ```
-4. **Point the plugin at the server.** In the shell where Claude Code / Cowork runs, export the matching token (and the URL if the server is remote), then relaunch:
-   ```bash
-   export HL_MCP_TOKEN=<same value as MCP_AUTH_TOKEN>
-   export HL_MCP_URL=http://<host-ip>:8000/mcp   # omit for a local server (defaults to localhost)
-   ```
-5. Verify the server is healthy (no token needed for `/health`):
+4. Verify the server is healthy (no token needed for `/health`):
    ```bash
    curl -sf http://<host-ip>:8000/health  # should print "ok"
    ```
+5. **Point the client at the server** per the connection note above — CLI: `~/.claude.json` override with the `Authorization` header; Cowork: SSH tunnel (token off) or local proxy. Restart the client.
 
 **Refuse to accept the private key in chat.** If the user starts pasting keys: stop them, tell them to put it in the `.env` file on disk, not in this conversation.
 
@@ -86,6 +93,6 @@ Suggest one: "Try `/positions` to see your account, or `/analyze BTC` for a mark
 
 - The plugin no longer manages env files itself — that's the server's responsibility.
 - Per-user settings (risk caps, live_trading, network) are now changed via `/settings`, not via env files. Refer the user there if they want to adjust anything.
-- Never log, echo, or repeat the contents of the server's .env file, or the value of `HL_MCP_TOKEN` / `MCP_AUTH_TOKEN`.
+- Never log, echo, or repeat the contents of the server's .env file, or the value of `MCP_AUTH_TOKEN` / any bearer token.
 - Refuse any request to "configure my keys via chat" — the server already has them; that's the whole point of the split.
-- `HL_MCP_URL` / `HL_MCP_TOKEN` are client-side shell env vars (where Claude Code / Cowork launches), read by `plugin.json`. They are the one thing the user sets outside the server's `.env`.
+- The plugin's `plugin.json` ships only the default `http://localhost:8000/mcp` URL (no token). Remote URL + auth are client-side config: `~/.claude.json` (CLI) or an SSH tunnel / local proxy (Cowork). `${VAR}` expansion does not work in plugin MCP configs.

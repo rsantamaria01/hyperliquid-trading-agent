@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 — Connection config moved to the client
+
+Fixes a broken assumption in 0.6.0: `${VAR}` expansion is **not** applied to plugin-bundled MCP configs (neither Cowork nor the CLI honor it for `plugin.json`), so the templated URL/header shipped as a literal string.
+
+- **`plugin.json`** now ships a plain default `url: http://localhost:8000/mcp` and **no auth header** — the plugin carries no deployment URL or token. The server URL is interchangeable per client; nothing deployment-specific lives in the repo.
+- **Per-client connection** documented:
+  - Claude Code (CLI/Desktop): override in `~/.claude.json` (same-named server wins; static `Authorization` header supported).
+  - Cowork: Add custom connector with your URL. The UI is OAuth-only, so a token-protected server needs the token supplied outside Cowork — a reverse proxy that injects `Authorization` (ideal behind an HTTPS domain), or an SSH tunnel with the server's token disabled.
+- `HL_MCP_URL` / `HL_MCP_TOKEN` env vars removed (they never worked for plugin-bundled servers).
+
 ## 0.6.0 — Streamable HTTP + bearer-token auth
 
 - **Transport is now Streamable HTTP** at `/mcp` (`"type": "http"`); the legacy SSE endpoint (`/sse`) is gone. Matches MCP server's HTTP-only rewrite.
