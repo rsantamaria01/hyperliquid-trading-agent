@@ -42,7 +42,16 @@ Verify: `curl -sf http://<host-ip>:8000/health` → `ok`.
 
 ### 2. Install this plugin
 
-Download the latest `hyperliquid-trading-agent.plugin` from [Releases](https://github.com/rsantamaria01/hyperliquid-trading-agent/releases) and open it (or drag into Cowork's install dialog). Restart Cowork.
+**Claude Code (CLI)** — install from a release tag via the marketplace:
+
+```
+/plugin marketplace add rsantamaria01/hyperliquid-trading-agent@v0.6.0
+/plugin install hyperliquid-trading-agent@hyperliquid-trading
+```
+
+The `@v0.6.0` pins the install to that release tag — bump it to install a newer version. Browse tags on the [Releases](https://github.com/rsantamaria01/hyperliquid-trading-agent/releases) page.
+
+**Cowork** — download the `.zip` asset from the matching release and drag it into the install dialog.
 
 Then point the plugin at your server — in the shell where Claude Code / Cowork launches:
 

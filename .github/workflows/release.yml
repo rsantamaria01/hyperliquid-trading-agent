@@ -1,0 +1,53 @@
+name: Release
+
+# On a pushed version tag (e.g. v0.6.0): verify the tag matches the manifest
+# versions, package the plugin into a versioned zip, and publish a GitHub
+# Release with that asset. Users install from the tag via the marketplace.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write # create releases + upload assets
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Tag matches manifest versions
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PJ_VER=$(jq -r '.version' .claude-plugin/plugin.json)
+          MP_VER=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+          echo "tag=$TAG plugin.json=$PJ_VER marketplace.json=$MP_VER"
+          [ "$TAG" = "$PJ_VER" ] || { echo "::error::tag $TAG != plugin.json $PJ_VER — bump the manifest before tagging"; exit 1; }
+          [ "$TAG" = "$MP_VER" ] || { echo "::error::tag $TAG != marketplace.json $MP_VER — bump the manifest before tagging"; exit 1; }
+
+      - name: Package plugin
+        run: |
+          PKG="hyperliquid-trading-agent-${GITHUB_REF_NAME}.zip"
+          zip -r "$PKG" \
+            .claude-plugin skills commands strategies README.md LICENSE CHANGELOG.md \
+            -x '*.git*'
+          echo "PKG=$PKG" >> "$GITHUB_ENV"
+          unzip -l "$PKG"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PKG }}
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            **Claude Code (CLI):**
+            ```
+            /plugin marketplace add rsantamaria01/hyperliquid-trading-agent@${{ github.ref_name }}
+            /plugin install hyperliquid-trading-agent@hyperliquid-trading
+            ```
+
+            **Cowork:** download the `.zip` asset below and drag it into the install dialog.
+
+            Requires the [hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp) server (Streamable HTTP at `/mcp`). In the shell where Claude Code / Cowork runs, set `HL_MCP_URL` (e.g. `http://<host-ip>:8000/mcp`) and `HL_MCP_TOKEN` (matching the server's `MCP_AUTH_TOKEN`).
