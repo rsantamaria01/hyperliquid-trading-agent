@@ -1,27 +1,19 @@
 ---
 name: setup
-description: Help the user get the MCP server running. Two scopes — bootstrap (start the Docker container) and configure (set runtime settings via update_settings). Use when the user says "set me up", "configure", "I just installed this", or runs /setup.
+description: Help the user get the MCP server running. Two scopes — bootstrap (install uv + create the workspace .env so the plugin can auto-spawn the server) and configure (set runtime settings via update_settings). Use when the user says "set me up", "configure", "I just installed this", or runs /setup.
 ---
 
 # Setup flow
 
-The plugin connects to the MCP server over **Streamable HTTP**, default `http://localhost:8000/mcp` (set in `plugin.json`). The server is a Docker container that holds the wallet keys and persistent settings; this plugin holds nothing sensitive.
+The plugin **auto-spawns the MCP server as a local stdio subprocess** via `uvx` (declared in `plugin.json`), installing it straight from git — `uvx --from git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.0 hyperliquid-trading-mcp`. There is no server to host, no port, no auth token, no registry account. The server reads its wallet keys and per-workspace settings from the **workspace directory** (`CLAUDE_PROJECT_DIR` — the folder Claude is open in). This plugin holds nothing sensitive.
 
-**Reaching a remote server / sending an auth token depends on the client — and Cowork is limited:**
+Prerequisites for the auto-spawn to work:
 
-- **Claude Code (CLI)** — register your server with `claude mcp add`. Using the same name (`hyperliquid-trading-agent`) makes it take precedence over the plugin's localhost default; static bearer headers are supported:
-  ```bash
-  claude mcp add --transport http --scope user \
-    hyperliquid-trading-agent https://your-domain/mcp \
-    --header "Authorization: Bearer <MCP_AUTH_TOKEN>"
-  ```
-  (Token-less local server: drop the `--header`. OAuth server: omit `--header` and run `/mcp` to authenticate.) Equivalent hand-edit lives in `~/.claude.json`; `${VAR}` expansion works there (unlike in plugin.json).
-- **Cowork (desktop)** — **Add custom connector** (name it `hyperliquid-trading-agent`, set the URL to your server, e.g. `https://your-domain/mcp`). The connector UI supports **only OAuth — no static bearer token or custom headers** — so Cowork itself can't send `Authorization: Bearer`. To use a token-protected server, the token must come from somewhere other than Cowork:
-  1. **Reverse proxy injects the token (best if you already serve the MCP behind an HTTPS domain).** Cowork → `https://your-domain/mcp` with no auth header; the proxy adds `Authorization: Bearer <token>` upstream to the MCP server. Keep the token in the proxy config (never in Cowork or the repo), and protect the public endpoint itself with Cloudflare Access / an IP allowlist / proxy basic-auth.
-  2. **SSH tunnel + token off.** Bind the server to `127.0.0.1`, leave `MCP_AUTH_TOKEN` unset, and `ssh -N -L 8000:127.0.0.1:8000 user@server` from the Cowork machine. The default `http://localhost:8000/mcp` then works; SSH is the encryption + auth.
-  3. **Local token-injecting proxy.** Same idea as (1) but the proxy runs on the Cowork machine; point Cowork at the local proxy URL.
+- **`uv` is installed** and `uvx` is on `PATH` (the Claude Code CLI sets this up for spawned servers).
+- **`git` is installed** (uvx clones the server repo on first run).
+- A **workspace `.env`** with the two wallet vars exists in the folder Claude runs in.
 
-Do not rely on `${VAR}` expansion in `plugin.json` — it is not applied for plugin-bundled MCP servers.
+**Client support:** the **Claude Code CLI is the supported client** — it sets `CLAUDE_PROJECT_DIR` and has `uvx` on `PATH` for spawned stdio servers. GUI clients (e.g. Cowork) may not put `uvx`/`npx` on the GUI app's `PATH` or set `CLAUDE_PROJECT_DIR`; that path is **untested**. If a GUI client can't launch the server, point it at an absolute path (`$(which uvx)`) or set `PATH` in the server's `env` block.
 
 ## Procedure
 
@@ -29,41 +21,38 @@ Do not rely on `${VAR}` expansion in `plugin.json` — it is not applied for plu
 
 Try `trading_mode()`. If it succeeds, the server is up — skip to step 3.
 
-- **Connection error / refused** → the container isn't running, or the client points at the wrong host (remote server not tunnelled/overridden — see the connection note above). Walk the user through bootstrap (step 2).
-- **401 / unauthorized** → the server requires a token the client isn't sending. On CLI, add the `Authorization` header in `~/.claude.json`; on Cowork, use the SSH-tunnel-with-token-off or local-proxy path above. Then restart the client.
+- **Tool not available / spawn error** → `uv` isn't installed, `uvx` isn't on `PATH`, or the package can't resolve. Walk the user through bootstrap (step 2).
 
-### 2. Bootstrap (Docker)
+### 2. Bootstrap
 
 Tell the user, in this order:
 
-1. Clone the MCP repo (or update it):
+1. **Install `uv`** (provides `uvx`), then restart the client so it picks up `PATH`:
    ```bash
-   git clone https://github.com/rsantamaria01/hyperliquid-trading-mcp.git
-   cd hyperliquid-trading-mcp
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
-2. Create the `.env` file with their wallet keys. The agent wallet **must be created on Hyperliquid first** (app.hyperliquid.xyz → Settings → API Wallets), then:
+2. **Create the workspace `.env`** in the folder they open Claude in. The agent wallet **must be created on Hyperliquid first** (app.hyperliquid.xyz → Settings → API Wallets):
    ```bash
-   cp .env.example .env
-   # edit .env — fill in:
-   #   HYPERLIQUID_PRIVATE_KEY=0x... (agent wallet key)
-   #   HYPERLIQUID_VAULT_ADDRESS=0x... (main wallet address)
-   #   MCP_AUTH_TOKEN=...            (a long random string; see note below)
+   # .env  (in the workspace root)
+   HYPERLIQUID_PRIVATE_KEY=0x...   # agent wallet key (signer only, no funds)
+   HYPERLIQUID_VAULT_ADDRESS=0x... # main wallet address (the funded one)
+   ```
+   ```bash
    chmod 600 .env
    ```
-   For `MCP_AUTH_TOKEN`, generate a strong value with `openssl rand -hex 32`. It is the access guard whenever the port is reachable beyond localhost. **If the user is on Cowork, prefer leaving it unset and using an SSH tunnel** (see the connection note above), since Cowork can't send a token.
-3. Start the container:
+3. **Gitignore the secrets and per-workspace settings** so they never get committed:
    ```bash
-   docker compose up -d
+   printf '.env\n.hl-mcp/\n' >> .gitignore
    ```
-4. Verify the server is healthy (no token needed for `/health`):
-   ```bash
-   curl -sf http://<host-ip>:8000/health  # should print "ok"
+4. The plugin auto-spawns the server on enable; `uvx` clones and builds `hyperliquid-trading-mcp` from git on first run (may take a few seconds). The server writes a startup banner to **stderr**:
    ```
-5. **Point the client at the server** per the connection note above — CLI: `~/.claude.json` override with the `Authorization` header; Cowork: SSH tunnel (token off) or local proxy. Restart the client.
+   hyperliquid-trading-mcp [DRY-RUN] — workspace: /path/to/workspace
+   ```
+   `[LIVE]` there means real orders for this workspace.
 
 **Refuse to accept the private key in chat.** If the user starts pasting keys: stop them, tell them to put it in the `.env` file on disk, not in this conversation.
 
-After they confirm the container is up, run `trading_mode()` again to verify.
+After they confirm `uv` is installed and `.env` exists, run `trading_mode()` again to verify.
 
 ### 3. First-time settings tour
 
@@ -73,7 +62,7 @@ Once the server is reachable, call `get_settings()` and show what the runtime co
 - `network` — usually `mainnet`
 - Risk caps — surface `max_position_pct`, `max_leverage`, `max_total_exposure_pct`
 
-Suggest: "When you're ready to trade for real, say 'go live' (I'll use `update_settings` to flip `live_trading: true`). To use testnet first, say 'switch to testnet'."
+Settings persist **per workspace** in `.hl-mcp/settings.json`, so `live_trading` is scoped to this folder. Suggest: "When you're ready to trade for real, say 'go live' (I'll use `update_settings` to flip `live_trading: true`). To use testnet first, say 'switch to testnet'."
 
 ### 4. Wallet sanity check
 
@@ -83,7 +72,7 @@ Run `trading_mode()` and report:
 - Signer address (the agent wallet — must match what they registered on Hyperliquid)
 - Account address (the main wallet — must match their funded wallet)
 
-If signer doesn't decode, their `HYPERLIQUID_PRIVATE_KEY` is malformed. Tell them to recheck the .env file.
+If signer doesn't decode, their `HYPERLIQUID_PRIVATE_KEY` is malformed. Tell them to recheck the `.env` file.
 
 ### 5. Next step
 
@@ -91,8 +80,8 @@ Suggest one: "Try `/positions` to see your account, or `/analyze BTC` for a mark
 
 ## Important
 
-- The plugin no longer manages env files itself — that's the server's responsibility.
-- Per-user settings (risk caps, live_trading, network) are now changed via `/settings`, not via env files. Refer the user there if they want to adjust anything.
-- Never log, echo, or repeat the contents of the server's .env file, or the value of `MCP_AUTH_TOKEN` / any bearer token.
-- Refuse any request to "configure my keys via chat" — the server already has them; that's the whole point of the split.
-- The plugin's `plugin.json` ships only the default `http://localhost:8000/mcp` URL (no token). Remote URL + auth are client-side config: `~/.claude.json` (CLI) or an SSH tunnel / local proxy (Cowork). `${VAR}` expansion does not work in plugin MCP configs.
+- The plugin holds no secrets — keys live in the workspace `.env` the server reads.
+- Per-workspace settings (risk caps, live_trading, network) are changed via `/settings`, not via env files. Refer the user there if they want to adjust anything.
+- Never log, echo, or repeat the contents of the workspace `.env` file.
+- Refuse any request to "configure my keys via chat" — put them in the `.env` on disk.
+- Each workspace is isolated: a workspace that was previously LIVE reopens LIVE — the startup banner surfaces it, and `trade-cycle`'s GO/NO gate still guards the first live order.
