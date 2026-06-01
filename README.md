@@ -4,7 +4,7 @@ Cowork / Claude Code plugin for trading Hyperliquid perpetuals via natural langu
 
 > **Two-repo architecture.**
 > - **MCP server** (Docker, persistent settings, all the Hyperliquid logic): [rsantamaria01/hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp). Forked from [edkdev/hyperliquid-mcp](https://github.com/edkdev/hyperliquid-mcp), risk layer adapted from [sanketagarwal/hyperliquid-trading-agent](https://github.com/sanketagarwal/hyperliquid-trading-agent).
-> - **This plugin**: just the Claude-facing layer. Skills, strategies, slash commands. **Holds no secrets.** Connects over Streamable HTTP to `${HL_MCP_URL:-http://localhost:8000/mcp}`, sending `Authorization: Bearer ${HL_MCP_TOKEN}`.
+> - **This plugin**: just the Claude-facing layer. Skills, strategies, slash commands. **Holds no secrets.** Connects over Streamable HTTP to `http://localhost:8000/mcp` by default; remote URL + auth are set per client (see install).
 
 > ⚠️ **Live exchange. Real money.** Not audited. Default mode is dry-run.
 
@@ -53,14 +53,18 @@ The `@v0.6.0` pins the install to that release tag — bump it to install a newe
 
 **Cowork** — download the `.zip` asset from the matching release and drag it into the install dialog.
 
-Then point the plugin at your server — in the shell where Claude Code / Cowork launches:
+The plugin defaults to `http://localhost:8000/mcp`. Pointing it at a **remote** server or sending an **auth token** is done per client (the plugin ships no URL override or token — `${VAR}` expansion is not applied to plugin MCP configs):
 
-```bash
-export HL_MCP_TOKEN=<same value as the server's MCP_AUTH_TOKEN>
-export HL_MCP_URL=http://<host-ip>:8000/mcp   # omit for a local server (defaults to localhost)
-```
-
-The plugin sends `Authorization: Bearer $HL_MCP_TOKEN`. If the server runs without `MCP_AUTH_TOKEN`, leave `HL_MCP_TOKEN` unset.
+- **Claude Code (CLI)** — register your server (same name overrides the plugin's localhost default):
+  ```bash
+  claude mcp add --transport http --scope user \
+    hyperliquid-trading-agent https://your-domain/mcp \
+    --header "Authorization: Bearer <MCP_AUTH_TOKEN>"
+  ```
+  Drop `--header` for a token-less local server; for an OAuth server omit it and run `/mcp` to log in.
+- **Cowork (desktop)** — **Add custom connector** (name `hyperliquid-trading-agent`, URL e.g. `https://your-domain/mcp`). The UI is **OAuth-only — no static bearer token / custom headers** — so Cowork can't send `Authorization: Bearer`. For a token-protected server, the token must come from elsewhere:
+  - **Reverse proxy injects it** (best if you already serve over HTTPS): Cowork hits `https://your-domain/mcp` with no auth header; the proxy adds the `Authorization` header upstream. Protect the public endpoint with Cloudflare Access / IP allowlist / proxy basic-auth.
+  - **SSH tunnel + token off**: `ssh -N -L 8000:127.0.0.1:8000 user@server`, server bound to `127.0.0.1` with `MCP_AUTH_TOKEN` unset → default `localhost:8000/mcp` works.
 
 ### 3. Sanity check + configure
 
