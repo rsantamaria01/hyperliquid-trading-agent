@@ -3,8 +3,8 @@
 Claude Code plugin for trading Hyperliquid perpetuals via natural language. Ships **skills, strategies, and slash commands** — and auto-spawns the MCP server (a separate repo) as a local stdio subprocess.
 
 > **Two-repo architecture.**
-> - **MCP server** (per-workspace settings, all the Hyperliquid logic): [rsantamaria01/hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp), published to PyPI as `hyperliquid-trading-mcp`. Forked from [edkdev/hyperliquid-mcp](https://github.com/edkdev/hyperliquid-mcp), risk layer adapted from [sanketagarwal/hyperliquid-trading-agent](https://github.com/sanketagarwal/hyperliquid-trading-agent).
-> - **This plugin**: just the Claude-facing layer. Skills, strategies, slash commands. **Holds no secrets.** Launches the server locally via `uvx hyperliquid-trading-mcp`; keys live in the workspace `.env` the server reads.
+> - **MCP server** (per-workspace settings, all the Hyperliquid logic): [rsantamaria01/hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp), installed straight from git via `uvx`. Forked from [edkdev/hyperliquid-mcp](https://github.com/edkdev/hyperliquid-mcp), risk layer adapted from [sanketagarwal/hyperliquid-trading-agent](https://github.com/sanketagarwal/hyperliquid-trading-agent).
+> - **This plugin**: just the Claude-facing layer. Skills, strategies, slash commands. **Holds no secrets.** Launches the server locally via `uvx --from git+...`; keys live in the workspace `.env` the server reads.
 
 > ⚠️ **Live exchange. Real money.** Not audited. Default mode is dry-run.
 
@@ -45,7 +45,7 @@ chmod 600 .env
 printf '.env\n.hl-mcp/\n' >> .gitignore
 ```
 
-The agent wallet must be created on Hyperliquid first (app.hyperliquid.xyz → Settings → API Wallets). `uvx` resolves the package from PyPI on first run.
+The agent wallet must be created on Hyperliquid first (app.hyperliquid.xyz → Settings → API Wallets). `uvx` clones and builds the server from git on first run (so `git` must be on `PATH`).
 
 ### 2. Install this plugin
 
@@ -58,7 +58,7 @@ The agent wallet must be created on Hyperliquid first (app.hyperliquid.xyz → S
 
 The `@v0.8.0` pins the install to that release tag — bump it to install a newer version. Browse tags on the [Releases](https://github.com/rsantamaria01/hyperliquid-trading-agent/releases) page.
 
-On enable, the plugin spawns `uvx hyperliquid-trading-mcp` automatically. The server writes a startup banner to **stderr**:
+On enable, the plugin spawns `uvx --from git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.0 hyperliquid-trading-mcp` automatically. The server writes a startup banner to **stderr**:
 
 ```
 hyperliquid-trading-mcp [DRY-RUN] — workspace: /path/to/workspace

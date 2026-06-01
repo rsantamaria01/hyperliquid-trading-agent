@@ -4,11 +4,11 @@
 
 Drops the hosted-server model entirely. The plugin now **auto-spawns the MCP server as a local stdio subprocess** instead of connecting to an HTTP endpoint.
 
-- **`plugin.json`** server entry is now `{ "command": "uvx", "args": ["hyperliquid-trading-mcp"] }` — no `url`, `type`, or auth header. Claude launches the server on enable; `uvx` resolves the package from PyPI.
+- **`plugin.json`** server entry is now `{ "command": "uvx", "args": ["--from", "git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.0", "hyperliquid-trading-mcp"] }` — no `url`, `type`, or auth header. Claude launches the server on enable; `uvx` clones and builds it from git (no registry account).
 - **No HTTP, no port, no bearer token.** The Cowork reverse-proxy / SSH-tunnel / OAuth-connector workarounds are gone — there's nothing to tunnel to.
 - **Per-workspace config.** The server reads secrets from `CLAUDE_PROJECT_DIR/.env` and settings from `CLAUDE_PROJECT_DIR/.hl-mcp/settings.json`. `live_trading` is scoped to the workspace folder.
-- **Setup skill + README rewritten:** install `uv`, create the workspace `.env` (two wallet vars), gitignore `.env` + `.hl-mcp/`, read the stderr LIVE/DRY-RUN banner. GUI PATH caveat documented; Claude Code CLI is the supported client (Cowork untested).
-- Requires MCP server **v3.0.0** (stdio transport, published on PyPI).
+- **Setup skill + README rewritten:** install `uv` (+ `git`), create the workspace `.env` (two wallet vars), gitignore `.env` + `.hl-mcp/`, read the stderr LIVE/DRY-RUN banner. GUI PATH caveat documented; Claude Code CLI is the supported client (Cowork untested).
+- Requires MCP server **v3.0.0** (stdio transport, installed from git at the tag).
 
 ## 0.7.0 — Connection config moved to the client
 
