@@ -1,0 +1,40 @@
+name: CI
+
+# Validate the plugin manifest and marketplace entry on every PR and push to
+# main, so a release tag is never cut against a broken or inconsistent manifest.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Manifests are valid JSON
+        run: |
+          jq empty .claude-plugin/plugin.json
+          jq empty .claude-plugin/marketplace.json
+
+      - name: plugin.json and marketplace.json agree
+        run: |
+          PJ_NAME=$(jq -r '.name' .claude-plugin/plugin.json)
+          PJ_VER=$(jq -r '.version' .claude-plugin/plugin.json)
+          MP_NAME=$(jq -r '.plugins[0].name' .claude-plugin/marketplace.json)
+          MP_VER=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+          echo "plugin.json: $PJ_NAME@$PJ_VER  |  marketplace.json: $MP_NAME@$MP_VER"
+          [ "$PJ_NAME" = "$MP_NAME" ] || { echo "::error::plugin name mismatch ($PJ_NAME vs $MP_NAME)"; exit 1; }
+          [ "$PJ_VER"  = "$MP_VER"  ] || { echo "::error::version mismatch (plugin.json $PJ_VER vs marketplace.json $MP_VER)"; exit 1; }
+
+      - name: Referenced skills and commands exist
+        run: |
+          fail=0
+          for s in $(jq -r '.skills[]' .claude-plugin/plugin.json); do
+            if [ ! -f "$s/SKILL.md" ]; then echo "::error::missing $s/SKILL.md"; fail=1; fi
+          done
+          for c in $(jq -r '.commands[]' .claude-plugin/plugin.json); do
+            if [ ! -e "$c" ]; then echo "::error::missing command path $c"; fail=1; fi
+          done
+          exit $fail
