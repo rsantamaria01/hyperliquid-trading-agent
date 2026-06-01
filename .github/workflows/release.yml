@@ -48,6 +48,6 @@ jobs:
             /plugin install hyperliquid-trading-agent@hyperliquid-trading
             ```
 
-            **Cowork:** download the `.zip` asset below and drag it into the install dialog.
+            **Cowork:** download the `.zip` asset below and drag it into the install dialog (untested — Claude Code CLI is the supported client).
 
-            Requires the [hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp) server (Streamable HTTP at `/mcp`). In the shell where Claude Code / Cowork runs, set `HL_MCP_URL` (e.g. `http://<host-ip>:8000/mcp`) and `HL_MCP_TOKEN` (matching the server's `MCP_AUTH_TOKEN`).
+            The plugin auto-spawns the [hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp) server locally via `uvx`. Install `uv` and drop a workspace `.env` with `HYPERLIQUID_PRIVATE_KEY` + `HYPERLIQUID_VAULT_ADDRESS`; run `/setup` to verify.
