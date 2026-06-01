@@ -4,7 +4,7 @@ Cowork / Claude Code plugin for trading Hyperliquid perpetuals via natural langu
 
 > **Two-repo architecture.**
 > - **MCP server** (Docker, persistent settings, all the Hyperliquid logic): [rsantamaria01/hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp). Forked from [edkdev/hyperliquid-mcp](https://github.com/edkdev/hyperliquid-mcp), risk layer adapted from [sanketagarwal/hyperliquid-trading-agent](https://github.com/sanketagarwal/hyperliquid-trading-agent).
-> - **This plugin**: just the Claude-facing layer. Skills, strategies, slash commands. **Holds no secrets.** Connects to `http://localhost:8000/sse`.
+> - **This plugin**: just the Claude-facing layer. Skills, strategies, slash commands. **Holds no secrets.** Connects over Streamable HTTP to `${HL_MCP_URL:-http://localhost:8000/mcp}`, sending `Authorization: Bearer ${HL_MCP_TOKEN}`.
 
 > ⚠️ **Live exchange. Real money.** Not audited. Default mode is dry-run.
 
@@ -32,16 +32,26 @@ strategies/                    # pluggable .md strategy definitions
 git clone https://github.com/rsantamaria01/hyperliquid-trading-mcp.git
 cd hyperliquid-trading-mcp
 cp .env.example .env
-# edit .env — fill in HYPERLIQUID_PRIVATE_KEY + HYPERLIQUID_VAULT_ADDRESS
+# edit .env — fill in HYPERLIQUID_PRIVATE_KEY + HYPERLIQUID_VAULT_ADDRESS + MCP_AUTH_TOKEN
+#   MCP_AUTH_TOKEN: a long random string, e.g. `openssl rand -hex 32`
 chmod 600 .env
 docker compose up -d
 ```
 
-Verify: `curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8000/sse` → `200`.
+Verify: `curl -sf http://<host-ip>:8000/health` → `ok`.
 
 ### 2. Install this plugin
 
 Download the latest `hyperliquid-trading-agent.plugin` from [Releases](https://github.com/rsantamaria01/hyperliquid-trading-agent/releases) and open it (or drag into Cowork's install dialog). Restart Cowork.
+
+Then point the plugin at your server — in the shell where Claude Code / Cowork launches:
+
+```bash
+export HL_MCP_TOKEN=<same value as the server's MCP_AUTH_TOKEN>
+export HL_MCP_URL=http://<host-ip>:8000/mcp   # omit for a local server (defaults to localhost)
+```
+
+The plugin sends `Authorization: Bearer $HL_MCP_TOKEN`. If the server runs without `MCP_AUTH_TOKEN`, leave `HL_MCP_TOKEN` unset.
 
 ### 3. Sanity check + configure
 

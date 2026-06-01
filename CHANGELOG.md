@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 — Streamable HTTP + bearer-token auth
+
+- **Transport is now Streamable HTTP** at `/mcp` (`"type": "http"`); the legacy SSE endpoint (`/sse`) is gone. Matches MCP server's HTTP-only rewrite.
+- **Configurable, authenticated connection.** `plugin.json` reads two shell env vars: `HL_MCP_URL` (defaults to `http://localhost:8000/mcp`; set to `http://<host-ip>:8000/mcp` for a remote server) and `HL_MCP_TOKEN` (sent as `Authorization: Bearer …`, must match the server's `MCP_AUTH_TOKEN`).
+- **Setup skill + README** updated: server `.env` now includes `MCP_AUTH_TOKEN`; client exports `HL_MCP_TOKEN` / `HL_MCP_URL`; 401 troubleshooting added.
+- Requires MCP server with the Streamable-HTTP `/mcp` endpoint and optional `MCP_AUTH_TOKEN`.
+
 ## 0.5.0 — URL transport, persistent settings via MCP
 
 - **Plugin connects via URL** (`http://localhost:8000/sse`). No more spawning the server process from `plugin.json`. The MCP server runs as a long-lived Docker container.
