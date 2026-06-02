@@ -13,13 +13,13 @@ Claude Code plugin for trading Hyperliquid perpetuals via natural language. Ship
 ```
 .claude-plugin/plugin.json    # registers the uvx launch command + skills + commands
 skills/
-  setup/                       # /setup — install uv + create the workspace .env
-  settings/                    # /settings — view/change per-workspace runtime config
-  strategy/                    # /strategy — pick or describe a strategy
-  market-analysis/             # /analyze — read setups
-  trade-cycle/                 # /trade-cycle — one full loop iteration
-  portfolio-review/            # /positions
-  risk-audit/                  # /risk-audit
+  setup/                       # /hta-setup — install uv + create the workspace .env
+  settings/                    # /hta-settings — view/change per-workspace runtime config
+  strategy/                    # /hta-strategy — pick or describe a strategy
+  market-analysis/             # /hta-analyze — read setups
+  trade-cycle/                 # /hta-trade-cycle — one full loop iteration
+  portfolio-review/            # /hta-positions
+  risk-audit/                  # /hta-risk-audit
 commands/                      # slash-command entry points
 strategies/                    # pluggable .md strategy definitions
 ```
@@ -72,22 +72,22 @@ hyperliquid-trading-mcp [DRY-RUN] — workspace: /path/to/workspace
 
 In Claude:
 ```
-/setup                                # walks first-time setup; verifies server
-/settings                             # see per-workspace config
-/trading-mode                         # confirms mode + wallet
+/hta-setup                                # walks first-time setup; verifies server
+/hta-settings                             # see per-workspace config
+/hta-trading-mode                         # confirms mode + wallet
 ```
 
 ## Use
 
 ```
-/strategy                             # list strategies
-/analyze BTC ETH --interval 1h
-/trade-cycle BTC ETH --strategy breakout-bb
-/positions
-/risk-audit
-/cancel BTC
-/settings set max_leverage=5
-/settings go-live                     # flips live_trading: true after confirm
+/hta-strategy                             # list strategies
+/hta-analyze BTC ETH --interval 1h
+/hta-trade-cycle BTC ETH --strategy breakout-bb
+/hta-positions
+/hta-risk-audit
+/hta-cancel BTC
+/hta-settings set max_leverage=5
+/hta-settings go-live                     # flips live_trading: true after confirm
 ```
 
 ## Configuration model
@@ -95,16 +95,16 @@ In Claude:
 | Where | What | How to change |
 |---|---|---|
 | Workspace `.env` | Only secrets: `HYPERLIQUID_PRIVATE_KEY`, `HYPERLIQUID_VAULT_ADDRESS` | Edit file, re-spawn the server |
-| Workspace `.hl-mcp/settings.json` | `live_trading`, `network`, risk caps | `/settings` slash command |
-| Plugin `strategies/*.md` | Trading strategies | Add `.md` files; `/strategy create` walks you through one |
+| Workspace `.hl-mcp/settings.json` | `live_trading`, `network`, risk caps | `/hta-settings` slash command |
+| Plugin `strategies/*.md` | Trading strategies | Add `.md` files; `/hta-strategy create` walks you through one |
 
-Secrets and settings are **per workspace** — read from the folder Claude is open in (`CLAUDE_PROJECT_DIR`), so `live_trading` is scoped to that folder. Risk caps are read on every tool call — change them with `/settings` and they take effect immediately, no restart needed.
+Secrets and settings are **per workspace** — read from the folder Claude is open in (`CLAUDE_PROJECT_DIR`), so `live_trading` is scoped to that folder. Risk caps are read on every tool call — change them with `/hta-settings` and they take effect immediately, no restart needed.
 
 ## Going live
 
 1. Run several cycles with `live_trading: false`. Verify trades look right.
-2. `/settings go-live` (asks for confirmation, then calls `update_settings({"live_trading": true})`).
-3. Start conservative: `/settings set max_position_pct=5 max_leverage=3` until you trust it.
+2. `/hta-settings go-live` (asks for confirmation, then calls `update_settings({"live_trading": true})`).
+3. Start conservative: `/hta-settings set max_position_pct=5 max_leverage=3` until you trust it.
 
 A workspace that was previously LIVE reopens LIVE — the startup banner surfaces it, and `trade-cycle`'s GO/NO gate guards the first live order each interactive cycle.
 

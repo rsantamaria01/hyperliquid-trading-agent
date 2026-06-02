@@ -1,11 +1,11 @@
 ---
 name: strategy
-description: List, inspect, or select a trading strategy from the strategies/ folder. Strategies define entry/exit/stop/take-profit rules that /trade-cycle follows. Use when the user says "what strategies are available", "show me the breakout strategy", "use the trend-pullback strategy", or runs /strategy.
+description: List, inspect, or select a trading strategy from the strategies/ folder. Strategies define entry/exit/stop/take-profit rules that /hta-trade-cycle follows. Use when the user says "what strategies are available", "show me the breakout strategy", "use the trend-pullback strategy", or runs /hta-strategy.
 ---
 
 # Strategy selector
 
-Each strategy lives in `strategies/*.md` in the plugin folder. Strategies tell `/trade-cycle` how to act instead of using the generic default heuristics.
+Each strategy lives in `strategies/*.md` in the plugin folder. Strategies tell `/hta-trade-cycle` how to act instead of using the generic default heuristics.
 
 ## Procedure
 
@@ -26,7 +26,7 @@ Each strategy lives in `strategies/*.md` in the plugin folder. Strategies tell `
 
 4. End by suggesting one of:
    - "Tell me which one to use, or say `details <name>` for the full rules."
-   - "Use a strategy in trade-cycle: `/trade-cycle BTC ETH --strategy <name>`."
+   - "Use a strategy in trade-cycle: `/hta-trade-cycle BTC ETH --strategy <name>`."
 
 ### If argument looks like a strategy name: show details
 
@@ -38,7 +38,7 @@ Show the user the template structure from `strategies/README.md` and offer to dr
 
 ## Important
 
-- Strategy files are **prose for Claude**, not executable code. When `/trade-cycle` runs with a strategy, you read the strategy file fresh, hold its rules in working memory, and apply them literally.
+- Strategy files are **prose for Claude**, not executable code. When `/hta-trade-cycle` runs with a strategy, you read the strategy file fresh, hold its rules in working memory, and apply them literally.
 - Never modify a strategy file without explicit user permission.
 - If a strategy says "limit at EMA20" and you don't have EMA20 in the market context, compute it from the candles before placing.
 - Override rules from a strategy file ALWAYS lose to the hard-coded risk manager (position cap, leverage cap, mandatory SL). A strategy can say "20% position size" but the risk manager will still cap at `MAX_POSITION_PCT`.

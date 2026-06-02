@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Help the user get the MCP server running. Two scopes — bootstrap (install uv + create the workspace .env so the plugin can auto-spawn the server) and configure (set runtime settings via update_settings). Use when the user says "set me up", "configure", "I just installed this", or runs /setup.
+description: Help the user get the MCP server running. Two scopes — bootstrap (install uv + create the workspace .env so the plugin can auto-spawn the server) and configure (set runtime settings via update_settings). Use when the user says "set me up", "configure", "I just installed this", or runs /hta-setup.
 ---
 
 # Setup flow
@@ -76,12 +76,12 @@ If signer doesn't decode, their `HYPERLIQUID_PRIVATE_KEY` is malformed. Tell the
 
 ### 5. Next step
 
-Suggest one: "Try `/positions` to see your account, or `/analyze BTC` for a market read."
+Suggest one: "Try `/hta-positions` to see your account, or `/hta-analyze BTC` for a market read."
 
 ## Important
 
 - The plugin holds no secrets — keys live in the workspace `.env` the server reads.
-- Per-workspace settings (risk caps, live_trading, network) are changed via `/settings`, not via env files. Refer the user there if they want to adjust anything.
+- Per-workspace settings (risk caps, live_trading, network) are changed via `/hta-settings`, not via env files. Refer the user there if they want to adjust anything.
 - Never log, echo, or repeat the contents of the workspace `.env` file.
 - Refuse any request to "configure my keys via chat" — put them in the `.env` on disk.
 - Each workspace is isolated: a workspace that was previously LIVE reopens LIVE — the startup banner surfaces it, and `trade-cycle`'s GO/NO gate still guards the first live order.

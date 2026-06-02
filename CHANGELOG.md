@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 — Consistent `hta-` slash-command names
+
+All slash commands are renamed with an `hta-` prefix so they share one namespace under the plugin: `/hyperliquid-trading-agent:hta-<name>`.
+
+- `setup → hta-setup`, `settings → hta-settings`, `analyze → hta-analyze`, `trade-cycle → hta-trade-cycle`, `positions → hta-positions`, `risk-audit → hta-risk-audit`, `strategy → hta-strategy`, `cancel → hta-cancel`, `trading-mode → hta-trading-mode`.
+- **Breaking (muscle memory):** the old bare names (`/setup`, etc.) no longer exist — use the `hta-` forms. Skill names and MCP tool names are unchanged.
+- Docs, skills, and strategy README updated to the new command names.
+
 ## 0.8.2 — Pin server v3.0.1 (SDK spot-meta crash fix)
 
 - Bump the spawned server pin to `hyperliquid-trading-mcp@v3.0.1`, which fixes an `IndexError: list index out of range` that crashed client init (every wallet-dependent tool) against current Hyperliquid mainnet spot meta. No plugin behavior change beyond the pin.
