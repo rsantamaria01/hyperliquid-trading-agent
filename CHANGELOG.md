@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.2 — One slash surface: hide skills from the menu
+
+The 7 skills were surfacing as their own slash entries (e.g. bare `/setup`, `/settings`, `/strategy`) **alongside** the `hta-*` commands — duplicate, inconsistently-named entries, since each `hta-*` command is a thin wrapper that runs its skill.
+
+- Add `user-invocable: false` to all 7 skills (`setup`, `settings`, `strategy`, `market-analysis`, `trade-cycle`, `portfolio-review`, `risk-audit`). They no longer appear in the `/` menu.
+- The slash menu now shows only the 9 `/hyperliquid-trading-agent:hta-*` commands — one consistent surface.
+- Skills still run: the commands invoke them, Claude still auto-triggers them by description, and scheduled tasks still work (`user-invocable: false` only hides the menu entry; unlike `disable-model-invocation` it does not block model/scheduled invocation).
+
 ## 0.9.1 — Fix stale go-live instructions
 
 - **`commands/hta-trading-mode.md`** told users to flip to LIVE by setting `LIVE_TRADING=true` in the MCP env. That's wrong for the current model — `live_trading` is a per-workspace persisted setting. Corrected to `/hta-settings go-live` (`update_settings`), and clarified that `LIVE_TRADING` env is only an emergency kill-switch override.

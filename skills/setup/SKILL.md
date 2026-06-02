@@ -1,5 +1,6 @@
 ---
 name: setup
+user-invocable: false
 description: Help the user get the MCP server running. Two scopes — bootstrap (install uv + create the workspace .env so the plugin can auto-spawn the server) and configure (set runtime settings via update_settings). Use when the user says "set me up", "configure", "I just installed this", or runs /hta-setup.
 ---
 

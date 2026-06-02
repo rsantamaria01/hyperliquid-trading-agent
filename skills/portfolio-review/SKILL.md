@@ -1,5 +1,6 @@
 ---
 name: portfolio-review
+user-invocable: false
 description: Review the current Hyperliquid portfolio — open positions, PnL, exposure, recent fills. Use when the user asks "how are my positions doing?", "what's my PnL?", "show me my open trades", or wants a daily/weekly portfolio check.
 ---
 

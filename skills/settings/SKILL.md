@@ -1,5 +1,6 @@
 ---
 name: settings
+user-invocable: false
 description: View or change the MCP server's persistent runtime settings — risk caps, live_trading mode, network. Settings persist per workspace in .hl-mcp/settings.json and survive restarts. Use when the user says "show settings", "change max leverage", "go live", "switch to testnet", or runs /hta-settings.
 ---
 
