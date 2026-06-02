@@ -1,13 +1,13 @@
 ---
 name: settings
-description: View or change the MCP server's persistent runtime settings — risk caps, LIVE_TRADING mode, network. All settings persist in a Docker volume and survive container restarts. Use when the user says "show settings", "change max leverage", "go live", "switch to testnet", or runs /settings.
+description: View or change the MCP server's persistent runtime settings — risk caps, LIVE_TRADING mode, network. Settings persist per workspace in .hl-mcp/settings.json and survive restarts. Use when the user says "show settings", "change max leverage", "go live", "switch to testnet", or runs /settings.
 ---
 
 # Settings management
 
-The MCP server keeps its runtime config in a persistent JSON file (Docker named volume). You change it via two MCP tools: `get_settings` and `update_settings`. Changes survive restarts.
+The MCP server keeps its runtime config in a per-workspace JSON file (`CLAUDE_PROJECT_DIR/.hl-mcp/settings.json`). You change it via two MCP tools: `get_settings` and `update_settings`. Changes persist across restarts and are scoped to the workspace folder.
 
-**Only these fields are configurable here.** Wallet keys (`HYPERLIQUID_PRIVATE_KEY`, `HYPERLIQUID_VAULT_ADDRESS`) are secrets — they live in the server's `.env` file and CANNOT be changed via MCP tools.
+**Only these fields are configurable here.** Wallet keys (`HYPERLIQUID_PRIVATE_KEY`, `HYPERLIQUID_VAULT_ADDRESS`) are secrets — they live in the workspace `.env` file and CANNOT be changed via MCP tools.
 
 ## Editable settings
 

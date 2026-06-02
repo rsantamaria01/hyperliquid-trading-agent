@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.1 — Fix stale skill/command references
+
+Cleanup that 0.8.0 missed — two files still described the old Docker/HTTP model:
+
+- **`commands/setup.md`** referenced the removed `link_env_file` MCP tool. Rewritten: the server reads the workspace `.env` (`CLAUDE_PROJECT_DIR`) and the plugin auto-spawns it via `uvx` — no env-linking tool. Keys go in the `.env` on disk, never pasted into chat.
+- **`skills/settings/SKILL.md`** said settings live in a "Docker named volume" that "survives container restarts". Corrected to the per-workspace `CLAUDE_PROJECT_DIR/.hl-mcp/settings.json`.
+
+No behavior change in the server; tool surface unchanged.
+
 ## 0.8.0 — Local stdio via uvx, per-workspace config
 
 Drops the hosted-server model entirely. The plugin now **auto-spawns the MCP server as a local stdio subprocess** instead of connecting to an HTTP endpoint.

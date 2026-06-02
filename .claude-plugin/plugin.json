@@ -1,6 +1,6 @@
 {
   "name": "hyperliquid-trading-agent",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Claude plugin: skills, strategies, and slash commands for trading Hyperliquid perpetuals. Auto-spawns the MCP server (hyperliquid-trading-mcp) locally via uvx, installed from git. Plugin holds no secrets — keys live in the workspace .env the server reads.",
   "author": {
     "name": "Raul Santamaria"

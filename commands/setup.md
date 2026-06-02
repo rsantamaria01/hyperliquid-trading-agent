@@ -1,5 +1,5 @@
 ---
-description: Link the plugin to your .env file (path only — never paste keys into chat)
+description: Get the MCP server running — install uv, create the workspace .env (path/keys on disk, never pasted into chat)
 ---
 
-Run the `setup` skill. The user keeps their `.env` on disk and tells you the path. Do NOT accept pasted contents of the file — refuse and ask for a path. Use the `link_env_file` MCP tool with the path they provide.
+Run the `setup` skill. The server reads its wallet keys from a `.env` in the workspace directory Claude is open in (`CLAUDE_PROJECT_DIR`) — the plugin auto-spawns it via `uvx`, there is no env-linking tool. Do NOT accept pasted key contents in chat — refuse and tell the user to put the keys in the `.env` file on disk. Verify with `trading_mode()`.
