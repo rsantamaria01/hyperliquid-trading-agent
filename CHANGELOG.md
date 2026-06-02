@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.2 — Pin server v3.0.1 (SDK spot-meta crash fix)
+
+- Bump the spawned server pin to `hyperliquid-trading-mcp@v3.0.1`, which fixes an `IndexError: list index out of range` that crashed client init (every wallet-dependent tool) against current Hyperliquid mainnet spot meta. No plugin behavior change beyond the pin.
+
 ## 0.8.1 — Fix stale skill/command references
 
 Cleanup that 0.8.0 missed — two files still described the old Docker/HTTP model:
