@@ -1,5 +1,6 @@
 ---
 name: strategy
+user-invocable: false
 description: List, inspect, or select a trading strategy from the strategies/ folder. Strategies define entry/exit/stop/take-profit rules that /hta-trade-cycle follows. Use when the user says "what strategies are available", "show me the breakout strategy", "use the trend-pullback strategy", or runs /hta-strategy.
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: market-analysis
+user-invocable: false
 description: Analyze one or more Hyperliquid markets and produce a buy/sell/hold recommendation with allocation, stop-loss, and take-profit. Use when the user asks "should I go long/short on X?", "what's the setup on BTC?", or asks for a market read on an asset.
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: risk-audit
+user-invocable: false
 description: Audit current portfolio against configured risk limits — flag positions over caps, missing stop-losses, excessive concentration, or approaching circuit breakers. Use when the user asks "am I within my risk limits?", "audit my risk", or before a high-stakes session.
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: trade-cycle
+user-invocable: false
 description: Run one full trading-loop iteration — sync account, force-close losers, analyze each asset against a strategy (or default heuristics), validate proposed trades against risk limits, execute. Use when the user says "run the trading loop", "do a trade cycle", "check the watchlist and trade", or sets up a scheduled task that invokes this skill.
 ---
 
