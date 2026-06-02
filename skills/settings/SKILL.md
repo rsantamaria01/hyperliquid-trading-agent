@@ -1,6 +1,6 @@
 ---
 name: settings
-description: View or change the MCP server's persistent runtime settings — risk caps, LIVE_TRADING mode, network. Settings persist per workspace in .hl-mcp/settings.json and survive restarts. Use when the user says "show settings", "change max leverage", "go live", "switch to testnet", or runs /settings.
+description: View or change the MCP server's persistent runtime settings — risk caps, LIVE_TRADING mode, network. Settings persist per workspace in .hl-mcp/settings.json and survive restarts. Use when the user says "show settings", "change max leverage", "go live", "switch to testnet", or runs /hta-settings.
 ---
 
 # Settings management
@@ -26,7 +26,7 @@ The MCP server keeps its runtime config in a per-workspace JSON file (`CLAUDE_PR
 
 ## Procedure
 
-### Showing settings (default `/settings`)
+### Showing settings (default `/hta-settings`)
 
 1. Call `get_settings()`.
 2. Show a compact table of current values, marking which differ from defaults.

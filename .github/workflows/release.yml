@@ -50,4 +50,4 @@ jobs:
 
             **Cowork:** download the `.zip` asset below and drag it into the install dialog (untested — Claude Code CLI is the supported client).
 
-            The plugin auto-spawns the [hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp) server locally via `uvx`. Install `uv` and drop a workspace `.env` with `HYPERLIQUID_PRIVATE_KEY` + `HYPERLIQUID_VAULT_ADDRESS`; run `/setup` to verify.
+            The plugin auto-spawns the [hyperliquid-trading-mcp](https://github.com/rsantamaria01/hyperliquid-trading-mcp) server locally via `uvx`. Install `uv` and drop a workspace `.env` with `HYPERLIQUID_PRIVATE_KEY` + `HYPERLIQUID_VAULT_ADDRESS`; run `/hta-setup` to verify.

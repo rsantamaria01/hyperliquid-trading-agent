@@ -1,16 +1,16 @@
 # Strategies
 
-Each `.md` file in this folder defines a trading strategy that `/trade-cycle` can use.
+Each `.md` file in this folder defines a trading strategy that `/hta-trade-cycle` can use.
 
 ## Selecting one
 
 ```
-/strategy                          # list available strategies
-/strategy breakout-bb              # show full rules for a strategy
-/trade-cycle BTC ETH --strategy breakout-bb --interval 1h
+/hta-strategy                          # list available strategies
+/hta-strategy breakout-bb              # show full rules for a strategy
+/hta-trade-cycle BTC ETH --strategy breakout-bb --interval 1h
 ```
 
-Without `--strategy`, `/trade-cycle` falls back to the default heuristics in the trade-cycle skill.
+Without `--strategy`, `/hta-trade-cycle` falls back to the default heuristics in the trade-cycle skill.
 
 ## Adding your own
 
