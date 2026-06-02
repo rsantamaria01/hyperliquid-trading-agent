@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1 — Fix stale go-live instructions
+
+- **`commands/hta-trading-mode.md`** told users to flip to LIVE by setting `LIVE_TRADING=true` in the MCP env. That's wrong for the current model — `live_trading` is a per-workspace persisted setting. Corrected to `/hta-settings go-live` (`update_settings`), and clarified that `LIVE_TRADING` env is only an emergency kill-switch override.
+- `skills/settings/SKILL.md` description: `LIVE_TRADING mode` → `live_trading mode` to match the setting key.
+
 ## 0.9.0 — Consistent `hta-` slash-command names
 
 All slash commands are renamed with an `hta-` prefix so they share one namespace under the plugin: `/hyperliquid-trading-agent:hta-<name>`.
