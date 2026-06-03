@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.2 — Log in the workspace; survive bursty fan-out
+
+First LIVE loop test surfaced two issues.
+
+- **Bug: the log was written to the plugin folder, not the user's workspace.** `LOG-SCHEMA.md` and `trade-cycle` said `hl-plugin/log.jsonl`, so the tick wrote into the plugin's directory (on the test machine, a dev clone) instead of where the user ran the chat. Fixed: the log is written to **`log.jsonl` in the workspace** (`CLAUDE_PROJECT_DIR`, next to `.env`/`.hl-mcp/`), never a plugin path. `/hta-setup` now git-ignores `log.jsonl`.
+- **Bug: `get_market_context` `IndexError` blinded most leaves under heavy fan-out.** A tick fired 36 leaves at once; the burst self-inflicted rate-limits/502s and the SDK raised `IndexError` on truncated bodies, so every asset HOLDed. Fixed in the **MCP server (bumped pin `v3.0.1` → `v3.0.2`)**: read calls now use bounded concurrency + backoff retry, the lazy meta fetch is serialized (no stampede), and candle/price fetches degrade gracefully instead of crashing the tool. README now warns to start with a modest watchlist.
+
 ## 0.10.1 — Fix the loop: background orchestrator model
 
 First live test of 0.10.0 surfaced two breakages and a clarified design. The loop is now an **orchestrator + background job**, not a same-chat loop.

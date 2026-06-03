@@ -6,7 +6,7 @@ description: Help the user get the MCP server running. Two scopes — bootstrap 
 
 # Setup flow
 
-The plugin **auto-spawns the MCP server as a local stdio subprocess** via `uvx` (declared in `plugin.json`), installing it straight from git — `uvx --from git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.1 hyperliquid-trading-mcp`. There is no server to host, no port, no auth token, no registry account. The server reads its wallet keys and per-workspace settings from the **workspace directory** (`CLAUDE_PROJECT_DIR` — the folder Claude is open in). This plugin holds nothing sensitive.
+The plugin **auto-spawns the MCP server as a local stdio subprocess** via `uvx` (declared in `plugin.json`), installing it straight from git — `uvx --from git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.2 hyperliquid-trading-mcp`. There is no server to host, no port, no auth token, no registry account. The server reads its wallet keys and per-workspace settings from the **workspace directory** (`CLAUDE_PROJECT_DIR` — the folder Claude is open in). This plugin holds nothing sensitive.
 
 Prerequisites for the auto-spawn to work:
 
@@ -41,10 +41,11 @@ Tell the user, in this order:
    ```bash
    chmod 600 .env
    ```
-3. **Gitignore the secrets and per-workspace settings** so they never get committed:
+3. **Gitignore the secrets, per-workspace settings, and the trade log** so they never get committed:
    ```bash
-   printf '.env\n.hl-mcp/\n' >> .gitignore
+   printf '.env\n.hl-mcp/\nlog.jsonl\n' >> .gitignore
    ```
+   (`log.jsonl` is the trade-loop event log — financial data, written in the workspace root.)
 4. The plugin auto-spawns the server on enable; `uvx` clones and builds `hyperliquid-trading-mcp` from git on first run (may take a few seconds). The server writes a startup banner to **stderr**:
    ```
    hyperliquid-trading-mcp [DRY-RUN] — workspace: /path/to/workspace

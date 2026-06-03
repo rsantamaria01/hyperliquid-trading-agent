@@ -45,7 +45,7 @@ EOF
 chmod 600 .env
 
 # never commit secrets or per-workspace settings
-printf '.env\n.hl-mcp/\n' >> .gitignore
+printf '.env\n.hl-mcp/\nlog.jsonl\n' >> .gitignore
 ```
 
 The agent wallet must be created on Hyperliquid first (app.hyperliquid.xyz → Settings → API Wallets). `uvx` clones and builds the server from git on first run (so `git` must be on `PATH`).
@@ -61,7 +61,7 @@ The agent wallet must be created on Hyperliquid first (app.hyperliquid.xyz → S
 
 The `@v0.8.0` pins the install to that release tag — bump it to install a newer version. Browse tags on the [Releases](https://github.com/rsantamaria01/hyperliquid-trading-agent/releases) page.
 
-On enable, the plugin spawns `uvx --from git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.1 hyperliquid-trading-mcp` automatically. The server writes a startup banner to **stderr**:
+On enable, the plugin spawns `uvx --from git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.2 hyperliquid-trading-mcp` automatically. The server writes a startup banner to **stderr**:
 
 ```
 hyperliquid-trading-mcp [DRY-RUN] — workspace: /path/to/workspace
@@ -111,7 +111,8 @@ Each background tick: mode check → account snapshot + risk audit → circuit-b
 - **Default strategy is a single coherent one** (`trend-pullback`). Multiple are opt-in (`--strategy a,b`) — mixing trend and counter-trend often aggregates to HOLD by design (conservative consensus).
 - **Circuit breaker** trips → the job is deleted and the loop stops; re-arm manually after reviewing the drawdown.
 - **Stopping.** `close` deletes the job and flattens all positions (bounded retry; never claims "flat" unless every close is confirmed). A plain "stop" deletes the job but leaves positions open under their exchange-side brackets. Emergency-exit latency is up to one cadence interval; for a faster stop, delete the job or close on the exchange directly.
-- **Log.** Each tick appends to `log.jsonl` (JSON Lines: per crypto, per tick — strategy results, decision, order, PnL). Financial data, git-ignored, **local-only** — never commit or share. Schema: `LOG-SCHEMA.md`.
+- **Log.** Each tick appends to **`log.jsonl` in your workspace root** (the folder you run the chat in, next to `.env`/`.hl-mcp/`) — JSON Lines, per crypto per tick: strategy results, decision, order, PnL. Financial data; `/hta-setup` git-ignores it. Schema: `LOG-SCHEMA.md`.
+- **Fan-out size.** Each leaf fetches market data, so a big watchlist × many strategies is a burst of exchange calls. The server (v3.0.2+) bounds read concurrency and retries transient rate-limits/502s, but very large sets can still throttle — start with a handful of assets and add more once a tick reliably returns data (not all-HOLD from data errors).
 
 ## Configuration model
 

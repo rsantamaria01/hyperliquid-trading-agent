@@ -94,7 +94,7 @@ For **each crypto** in the watchlist this iteration (including HOLDs and, on a c
 
 **Sourcing the ids** (do this once at the top of the tick): `session_id` = the current chat session id, stable for the loop's lifetime. `iteration_id` = read the last line(s) of `log.jsonl`, take the highest `iteration_id` for this `session_id`, add 1 (first tick of a session → `1`). Ticks within one session run serially (one at a time), so there is no intra-session append race; different sessions use distinct `session_id`, so appends to the shared file never collide on the key.
 
-Append via the file-append tool (Bash `>>`, confirmed available). The log holds financial data and is git-ignored — never commit it.
+**Where:** write `log.jsonl` in the **workspace directory** — the folder the chat is running in (the current working directory, i.e. `CLAUDE_PROJECT_DIR`), next to `.env`/`.hl-mcp/`. Do **not** write into the plugin's install/cache folder or any `hl-plugin/` path. Append via the file-append tool (Bash `>>` to `"$CLAUDE_PROJECT_DIR/log.jsonl"`, falling back to `./log.jsonl` in the workspace cwd). The log holds financial data and is local-only — never commit it.
 
 ### 11. Summary
 Report: trades opened (asset, side, entry type, fill, brackets), trades closed (exit, realized PnL), limit orders resting, rejected trades + why, net exposure vs cap, and the mode. If the circuit breaker halted the tick (step 4), say so and that no next wake is scheduled.
