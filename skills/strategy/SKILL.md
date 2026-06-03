@@ -6,7 +6,7 @@ description: List, inspect, or select a trading strategy from the strategies/ fo
 
 # Strategy selector
 
-Each strategy lives in `strategies/*.md` in the plugin folder. Strategies tell `/hta-trade-cycle` how to act instead of using the generic default heuristics.
+Each strategy lives in `strategies/*.md` in the plugin folder. Strategies tell `/hta-trade-cycle` how to act; with no `--strategy`, it runs the single curated default (`trend-pullback`).
 
 ## Procedure
 

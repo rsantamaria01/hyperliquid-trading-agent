@@ -29,12 +29,15 @@ Parse `$ARGUMENTS`:
 - Invoke the `trade-cycle` skill with the assets, cadence interval, strategy set, and autonomous flag. It performs mode check → snapshot + risk audit → circuit-breaker gate → force-close → fan-out → consensus → validate → execute → log → summary.
 
 ### 3. Decide whether to continue
-- If `trade-cycle` signaled a **circuit-breaker halt** (step 4 of that skill): do **not** schedule the next wake. Tell the user the loop is paused until the UTC day boundary and they can re-start it then. Stop.
-- Otherwise schedule the next tick (step 4).
+- If `trade-cycle` signaled a **circuit-breaker halt**: do **not** continue the loop (stop the driver below). Tell the user the loop is paused until the UTC day boundary and they can re-start it then. Stop.
+- Otherwise keep the loop running (step 4).
 
-### 4. Schedule the next wake (R9)
-- Schedule a wake after the cadence interval using the harness wake primitive (`ScheduleWakeup`), passing **the loop's own command string as the wake prompt** — e.g. `/hta-trade-cycle BTC ETH SOL --interval 5m --strategy trend-pullback` (plus "execute approved trades automatically" if the autonomous flag is set). Re-firing that exact command is what carries the loop's state across the wake (confirmed in the U7 spike — `ScheduleWakeup` re-fires its prompt verbatim).
-- Keep **one** pending wake at a time — never schedule a second while one is outstanding.
+### 4. Repeat on the cadence (R9)
+The loop repeats by **re-firing the `hta-trade-cycle` command each cadence interval in the same chat session**. Use the harness's same-chat recurring mechanism — the **`/loop` skill** is the match (`/loop <cadence> /hta-trade-cycle <assets> [--strategy a,b] [execute approved trades automatically]`), which re-runs the slash command verbatim every interval and self-paces in one session.
+
+- On a **fresh start**, run the first tick (step 2), then hand off to `/loop` so it re-fires the command each cadence. Each subsequent firing runs **exactly one tick** — it does not re-arm `/loop` (keep **one** driver only; never start a second).
+- Re-firing the exact command string is what carries the loop's state (assets, strategy set, cadence, autonomous flag) across each repeat — there is no separately persisted state to manage.
+- If the client does not provide `/loop`, fall back to the harness's own recurring/wake primitive, re-firing the same command string each cadence. Do not hard-code a specific tool name; what matters is "re-run this command every cadence in this session." (Background/cron schedulers are out of scope — same-chat only.)
 
 ### 5. Loop-state hygiene (R15)
 - Each wake is effectively a fresh tick. Rebuild what the tick needs from (a) the re-fired command args, (b) the **log** (`log.jsonl` — last lines for prior decisions/positions), and (c) live `get_account_state()` — **not** from accumulated chat reasoning. Do not carry full prior-tick analysis forward in context; the durable record is the log. This keeps the main context from growing unbounded across many ticks.
@@ -44,7 +47,7 @@ Parse `$ARGUMENTS`:
 Trigger only when the user's input is the **explicit `close` command** — `hta-trade-cycle close` (or args that are exactly the bare keyword `close`). A normal message that merely *contains* the word "close" in prose (e.g. "should I close BTC?") does **not** trigger a flatten; if intent is ambiguous, ask before flattening.
 
 Then:
-1. **Cancel any pending wake** so no tick fires after the flatten (no zombie iteration).
+1. **Stop the loop driver first** so no tick re-fires after the flatten (no zombie iteration). End the active `/loop` (or whichever recurring mechanism is driving this session's loop) — identify it from the running session, do not rely on a remembered job id. Do this **before** flattening so a re-fire cannot race the close.
 2. **Flatten all open positions regardless of PnL.** Read positions via `get_account_state()`; for each, call `close_position(asset)`. Retry each failed close up to **3 times** with a short backoff.
 3. **Honest reporting (R13):** list each position closed (asset, exit, realized PnL). For any that still failed after retries, report it explicitly with current size + unrealized PnL and tell the user it is **still open** and needs manual intervention. **Never print "account is flat" unless every position is confirmed closed.**
 4. Append a `close`/`derisk` log line per affected crypto.
@@ -54,7 +57,7 @@ Then:
 
 If the user sends any other message while the loop is active:
 - **Do not flatten** and **do not silently drop it.** Answer the question or handle the request (e.g. "how is BTC doing?" → report from `get_account_state()`), then continue the loop on its existing schedule.
-- If the message is a stop intent other than `close` (e.g. "stop", "pause the loop"), treat it as a **normal stop (R11)**: stop scheduling further wakes and leave open positions untouched (they remain protected by their exchange-side brackets). Confirm that positions are left open and that `close` is the way to also flatten.
+- If the message is a stop intent other than `close` (e.g. "stop", "pause the loop"), treat it as a **normal stop (R11)**: stop the loop driver (end the `/loop`) and leave open positions untouched (they remain protected by their exchange-side brackets). Confirm that positions are left open and that `close` is the way to also flatten.
 
 ## Normal stop (R11)
 

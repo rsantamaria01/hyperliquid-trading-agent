@@ -10,7 +10,7 @@ Each `.md` file in this folder defines a trading strategy that `/hta-trade-cycle
 /hta-trade-cycle BTC ETH --strategy breakout-bb --interval 1h
 ```
 
-Without `--strategy`, `/hta-trade-cycle` falls back to the default heuristics in the trade-cycle skill.
+Without `--strategy`, `/hta-trade-cycle` runs a single curated default strategy (`trend-pullback`). Pass `--strategy a,b` to run several — mixing trend and counter-trend strategies often aggregates to HOLD by design (conservative consensus).
 
 ## Adding your own
 

@@ -6,7 +6,7 @@ The looping trade cycle (`trade-loop` skill, driving `trade-cycle`) appends to `
 
 **Local-only.** The log holds financial data (order sizes, SL/TP prices, PnL). It is git-ignored (`hl-plugin/.gitignore`) and must never be committed or shared. There is no tracked seed file.
 
-> Field-level names for the per-strategy results and the order block are the **single source of truth in `skills/trade-loop/leaf-contract.md`** (the leaf verdict contract). This doc owns the top-level event structure; `leaf-contract.md` owns the inner field names. The shape below is directional until that contract is pinned.
+> Field-level names for the per-strategy results and the order block are the **single source of truth in `skills/trade-loop/leaf-contract.md`** (the leaf verdict contract), which pins them. This doc owns the top-level event structure; `leaf-contract.md` owns the inner field names. The verdict→log mapping is: verdict `strategy`→`strategies[].name`, `proposed_sl`/`proposed_tp`→`order.sl`/`order.tp`; `passed`/`score`/`signal` carry through unchanged.
 
 ## Top-level event structure
 
