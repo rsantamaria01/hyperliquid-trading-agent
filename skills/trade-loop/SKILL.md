@@ -6,7 +6,7 @@ description: Drive a recurring scheduled trading loop — arm a cron that runs o
 
 # Trade loop (orchestrator + background job)
 
-This chat session is an **orchestrator / control panel** — it arms, inspects, modifies, and stops the loop, but it does **not** run trades itself. The trading runs in the **background**: a recurring scheduled job (cron) fires **one `trade-cycle` iteration every cadence interval, each in its own headless session**, independent of this chat. The per-tick trading logic (fan-out, guards, consensus, execute, log) lives in the `trade-cycle` skill. Leaf and log field names: `skills/trade-loop/leaf-contract.md`, `LOG-SCHEMA.md`.
+This chat session is an **orchestrator / control panel** — it arms, inspects, modifies, and stops the loop, but it does **not** run trades itself. The trading runs in the **background**: a recurring scheduled job (cron) fires **one `trade-cycle` iteration every cadence interval, each in its own headless session**, independent of this chat. The per-tick trading logic (inline fetch + per-strategy evaluation, guards, consensus, execute, log) lives in the `trade-cycle` skill. Evaluation rubric + log field names: `skills/trade-loop/leaf-contract.md`, `LOG-SCHEMA.md`.
 
 Control surface from this chat:
 - **Arm** — `hta-trade-cycle <assets> [...]` → create the background job.

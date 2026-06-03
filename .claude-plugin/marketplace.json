@@ -8,7 +8,7 @@
       "name": "hyperliquid-trading-agent",
       "source": "./",
       "description": "Trade Hyperliquid perpetual futures by natural language — skills, strategies, and slash commands. Auto-spawns the hyperliquid-trading-mcp server locally via uvx (installed from git).",
-      "version": "0.10.3",
+      "version": "0.11.0",
       "author": {
         "name": "Raul Santamaria"
       },
