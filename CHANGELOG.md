@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0 — Inline tick analysis (drop the broken leaf fan-out)
+
+LIVE testing proved the per-(crypto × strategy) **leaf subagent** model doesn't work: a Task subagent calling `get_market_context` fails with an SDK `IndexError`, while the **same call from the main thread succeeds**. The earlier "fix" (server throttle/retry, v3.0.2/3) targeted the wrong cause — it's not rate-limiting, it's that subagents can't reach the tool. Left as-is, ticks wasted 36 dispatches and risked reporting false "no-data" HOLDs.
+
+- **`trade-cycle` now fetches + evaluates inline.** Each tick resolves the distinct (crypto, timeframe) pairs, fetches `get_market_context` **on the main thread** (concurrency-bounded, deduped per crypto+timeframe), then evaluates every (crypto × strategy) inline against the strategy rubric — no subagent dispatch. Missing data → `passed:false` ("market data unavailable"), never a mislabelled strategy gate.
+- **Why this is safe for context:** the loop already runs each tick in its own background session (the orchestrator model), so the leaf fan-out's only real benefit — keeping heavy work out of the user's chat — was already covered. The subagents added a broken MCP path and nothing else.
+- `leaf-contract.md` is now the **inline evaluation rubric** (verdict field names unchanged); the false "U7 confirmed subagents can call MCP" note is removed. Consensus, guards, validate, execute, and the workspace `log.jsonl` are unchanged.
+
 ## 0.10.3 — Pin server v3.0.3 (read_concurrency is a setting)
 
 - Bump the server pin `v3.0.2` → `v3.0.3`. The read-concurrency knob added in v3.0.2 was wrongly an env var; it's now a proper per-workspace **setting**. Tune it with `/hta-settings set read_concurrency=3` (lower it if a heavy fan-out hits rate-limits/502s) — no new env var, no restart. `.env` stays secrets-only.

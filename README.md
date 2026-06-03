@@ -17,9 +17,9 @@ skills/
   settings/                    # /hta-settings — view/change per-workspace runtime config
   strategy/                    # /hta-strategy — pick or describe a strategy
   market-analysis/             # /hta-analyze — read setups
-  trade-cycle/                 # one fan-out iteration (called per tick by trade-loop)
+  trade-cycle/                 # one iteration: inline fetch + per-strategy eval (per tick)
   trade-loop/                  # the loop: repeat trade-cycle on a cadence + `close`
-    leaf-contract.md           # (crypto × strategy) leaf verdict contract
+    leaf-contract.md           # (crypto × strategy) evaluation rubric / verdict fields
   portfolio-review/            # /hta-positions
   risk-audit/                  # /hta-risk-audit
 commands/                      # slash-command entry points
@@ -95,7 +95,7 @@ In Claude:
 
 ## Looping trade cycle (orchestrator + background job)
 
-`/hta-trade-cycle <assets>` arms a **background loop**: a scheduled job (cron) fires one trade-cycle iteration every cadence interval, **each in its own headless session**. **This chat is the orchestrator** — you arm, inspect, modify, and stop the loop here, but the heavy per-tick work runs in the background. That keeps this session lean: the fan-out (N assets × M strategies) never lands in your chat context; you only see compact summaries from the log.
+`/hta-trade-cycle <assets>` arms a **background loop**: a scheduled job (cron) fires one trade-cycle iteration every cadence interval, **each in its own headless session**. **This chat is the orchestrator** — you arm, inspect, modify, and stop the loop here, but the heavy per-tick work runs in the background. That keeps this session lean: the per-tick analysis (N assets × M strategies) runs in the background session and never lands in your chat context; you only see compact summaries from the log.
 
 ```
 /hta-trade-cycle BTC ETH SOL --interval 5m --strategy trend-pullback execute approved trades automatically
@@ -103,7 +103,7 @@ In Claude:
 /hta-trade-cycle close                    # stop the loop AND flatten everything
 ```
 
-Each background tick: mode check → account snapshot + risk audit → circuit-breaker gate → force-close losers → **fan out one subagent per (crypto × strategy)** in parallel (each analyzes in its own context, returns a compact pass/fail + score + signal) → aggregate per crypto → `validate_trade` → execute → append a log line.
+Each background tick: mode check → account snapshot + risk audit → circuit-breaker gate → force-close losers → **fetch market data and evaluate each (crypto × strategy) inline** (one verdict per pair: pass/fail + score + signal) → aggregate per crypto → `validate_trade` → execute → append a log line.
 
 - **Background — survives this chat.** The job keeps firing after you close the chat. Stop it with `hta-trade-cycle close` (stop + flatten) or `CronDelete <id>`. Closing the chat does **not** stop trading.
 - **Autonomous required for unattended entries.** A background tick has no human to confirm, so without the phrase `execute approved trades automatically` it **skips** new entries (runs as monitor + de-risk only). With it, LIVE entries fire unattended — every tick still runs force-close, the circuit-breaker gate, and `validate_trade`, and positions open with exchange-side SL/TP brackets.
@@ -112,7 +112,7 @@ Each background tick: mode check → account snapshot + risk audit → circuit-b
 - **Circuit breaker** trips → the job is deleted and the loop stops; re-arm manually after reviewing the drawdown.
 - **Stopping.** `close` deletes the job and flattens all positions (bounded retry; never claims "flat" unless every close is confirmed). A plain "stop" deletes the job but leaves positions open under their exchange-side brackets. Emergency-exit latency is up to one cadence interval; for a faster stop, delete the job or close on the exchange directly.
 - **Log.** Each tick appends to **`log.jsonl` in your workspace root** (the folder you run the chat in, next to `.env`/`.hl-mcp/`) — JSON Lines, per crypto per tick: strategy results, decision, order, PnL. Financial data; `/hta-setup` git-ignores it. Schema: `LOG-SCHEMA.md`.
-- **Fan-out size.** Each leaf fetches market data, so a big watchlist × many strategies is a burst of exchange calls. The server (v3.0.2+) bounds read concurrency and retries transient rate-limits/502s, but very large sets can still throttle — start with a handful of assets and add more once a tick reliably returns data (not all-HOLD from data errors).
+- **Watchlist size.** Each tick fetches market data per (crypto × timeframe), so a big watchlist × many strategies is a burst of exchange calls. The server (v3.0.3+) bounds read concurrency (the `read_concurrency` setting) and retries transient rate-limits/502s, but very large sets can still throttle — start with a handful of assets and add more once a tick reliably returns data (not all-HOLD from data errors).
 
 ## Configuration model
 
