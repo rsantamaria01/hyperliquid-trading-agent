@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0 — Looping trade cycle with subagent fan-out
+
+`/hta-trade-cycle <assets>` now starts a **persistent same-chat loop** instead of running a single iteration, and each iteration fans its per-asset analysis out to **parallel leaf subagents** (one per crypto × strategy).
+
+- **New `trade-loop` skill** owns the loop: run one `trade-cycle` tick → schedule the next wake after the cadence interval (via `ScheduleWakeup`, re-firing the command to carry state) → repeat. Per-tick state is rebuilt from args + the log + live account state, so the main context does not grow unbounded across ticks.
+- **`trade-cycle` refactored** from serial per-asset analysis to a parallel (crypto × strategy) leaf fan-out per `skills/trade-loop/leaf-contract.md`. Each leaf fetches its own market context in isolation and returns only a compact verdict; the main agent aggregates by **conservative consensus** (open only if strategies agree on direction; conflict → HOLD), validates, executes, and logs.
+- **`hta-trade-cycle close`** stops the loop and flattens all positions regardless of PnL (bounded retry, honest reporting — never claims "flat" unconfirmed). A normal stop leaves positions open under their exchange-side SL/TP brackets.
+- **LIVE = confirm-on-new-entry**: risk-reducing actions auto-run; new entries pause for GO/NO unless `execute approved trades automatically` is supplied. Per-tick `trading_mode()` overrides any session flag. The **circuit-breaker hard stop** is preserved as an explicit per-tick guard (no new trades, no next wake when active).
+- **Cadence vs analysis timeframe** decoupled: `--interval` is the run cadence; each strategy is analyzed on a timeframe it declares valid. Default strategy set is a single coherent strategy (not all) to avoid a consensus deadlock.
+  - **Breaking (behavior):** `--interval` previously set the analysis candle timeframe fed to `get_market_context`; it now sets the loop **cadence**. Analysis timeframe now comes from each strategy's `timeframes` frontmatter. Existing one-shot invocations that relied on `--interval` to pick the analysis timeframe will analyze on the strategy's declared timeframe instead.
+- **Loop driver:** repetition runs on the `/loop` skill (same-chat, self-paced) — `/hta-trade-cycle` executes one tick per firing. No background/cron scheduler (out of scope).
+- **New append-only log**: `log.json` (an unused template) replaced by **git-ignored `log.jsonl`** (JSON Lines, one event per crypto per tick) documented in `LOG-SCHEMA.md`. It holds financial data and is local-only — never committed.
+
 ## 0.9.2 — One slash surface: hide skills from the menu
 
 The 7 skills were surfacing as their own slash entries (e.g. bare `/setup`, `/settings`, `/strategy`) **alongside** the `hta-*` commands — duplicate, inconsistently-named entries, since each `hta-*` command is a thin wrapper that runs its skill.

@@ -30,3 +30,6 @@ desktop.ini
 # Local notes / scratch
 runtime.env
 *.local.md
+
+# Trade-loop event log — local-only financial data (order sizes, SL/TP, PnL). Never commit.
+log.jsonl
