@@ -17,11 +17,14 @@ skills/
   settings/                    # /hta-settings — view/change per-workspace runtime config
   strategy/                    # /hta-strategy — pick or describe a strategy
   market-analysis/             # /hta-analyze — read setups
-  trade-cycle/                 # /hta-trade-cycle — one full loop iteration
+  trade-cycle/                 # one fan-out iteration (called per tick by trade-loop)
+  trade-loop/                  # the loop: repeat trade-cycle on a cadence + `close`
+    leaf-contract.md           # (crypto × strategy) leaf verdict contract
   portfolio-review/            # /hta-positions
   risk-audit/                  # /hta-risk-audit
 commands/                      # slash-command entry points
 strategies/                    # pluggable .md strategy definitions
+LOG-SCHEMA.md                  # append-only log.jsonl event schema (local-only)
 ```
 
 ## Install — 3 steps
@@ -90,6 +93,24 @@ In Claude:
 /hta-settings go-live                     # flips live_trading: true after confirm
 ```
 
+## Looping trade cycle
+
+`/hta-trade-cycle <assets>` starts a **loop**: it runs one iteration, then repeats every cadence interval in the same chat session.
+
+```
+/hta-trade-cycle BTC ETH SOL --interval 5m --strategy trend-pullback
+/hta-trade-cycle close                    # stop the loop AND flatten everything
+```
+
+Each iteration: mode check → account snapshot + risk audit → circuit-breaker gate → force-close losers → **fan out one subagent per (crypto × strategy)** in parallel (each analyzes in its own context and returns a compact pass/fail + score + signal) → aggregate per crypto → `validate_trade` → execute → append a log line.
+
+- **Cadence ≠ timeframe.** `--interval` is how often the loop runs. Each strategy is analyzed on a timeframe **it** declares valid (its `timeframes` frontmatter), independent of the cadence.
+- **Default strategy is a single coherent one** (`trend-pullback`). Multiple are opt-in (`--strategy a,b`) — mixing trend and counter-trend strategies often aggregates to HOLD by design (conservative consensus: open only if strategies agree on direction).
+- **LIVE = confirm-on-new-entry.** Risk-reducing actions (force-close, close/derisk) auto-run; each **new** entry pauses for GO/NO — unless you add the phrase `execute approved trades automatically` to authorize unattended entries. DRY-RUN never prompts.
+- **Stopping.** `close` stops the loop and flattens all positions (bounded retry; it reports honestly and never claims "flat" unless every close is confirmed). A **normal** stop — ending the session, or "stop" — leaves positions open, still protected by their resting exchange-side SL/TP brackets, but **no further loop ticks run** (no force-close, no circuit-breaker re-check) until you restart.
+- **Emergency-exit latency.** A `close` typed while the loop is idle between ticks is acted on within at most **one cadence interval**. For a faster stop, use a short cadence or close on the exchange directly.
+- **Log.** Each iteration appends to `log.jsonl` (JSON Lines: per crypto, per tick — strategy results, decision, order, PnL). It contains financial data, is git-ignored, and is **local-only** — never commit or share it. Schema: `LOG-SCHEMA.md`.
+
 ## Configuration model
 
 | Where | What | How to change |
@@ -106,7 +127,7 @@ Secrets and settings are **per workspace** — read from the folder Claude is op
 2. `/hta-settings go-live` (asks for confirmation, then calls `update_settings({"live_trading": true})`).
 3. Start conservative: `/hta-settings set max_position_pct=5 max_leverage=3` until you trust it.
 
-A workspace that was previously LIVE reopens LIVE — the startup banner surfaces it, and `trade-cycle`'s GO/NO gate guards the first live order each interactive cycle.
+A workspace that was previously LIVE reopens LIVE — the startup banner surfaces it, and the loop's confirm-on-new-entry gate guards every new live entry (unless you authorized autonomous entries with `execute approved trades automatically`).
 
 ## Autonomous mode (scheduled tasks)
 
