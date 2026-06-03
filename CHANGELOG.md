@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.3 — Pin server v3.0.3 (read_concurrency is a setting)
+
+- Bump the server pin `v3.0.2` → `v3.0.3`. The read-concurrency knob added in v3.0.2 was wrongly an env var; it's now a proper per-workspace **setting**. Tune it with `/hta-settings set read_concurrency=3` (lower it if a heavy fan-out hits rate-limits/502s) — no new env var, no restart. `.env` stays secrets-only.
+
 ## 0.10.2 — Log in the workspace; survive bursty fan-out
 
 First LIVE loop test surfaced two issues.
