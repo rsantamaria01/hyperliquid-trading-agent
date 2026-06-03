@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.1 — Log via MCP tool (no per-tick permission prompt)
+
+The loop logged with Bash `>>`, which prompts for permission every tick and can't be auto-allowed (the command varies each time). Switched to MCP tools (server `v3.0.4`):
+
+- `trade-cycle` now writes each event with **`append_log`** and sources the next `iteration_id` from **`get_log`** — a stable, allowlistable tool call, no shell prompt. `trade-loop` `status` reads via `get_log` too.
+- The tools always write to `CLAUDE_PROJECT_DIR/log.jsonl` (the workspace), never a plugin path — also removes any ambiguity about where the log lands.
+- Server pin `v3.0.3` → `v3.0.4`.
+
 ## 0.11.0 — Inline tick analysis (drop the broken leaf fan-out)
 
 LIVE testing proved the per-(crypto × strategy) **leaf subagent** model doesn't work: a Task subagent calling `get_market_context` fails with an SDK `IndexError`, while the **same call from the main thread succeeds**. The earlier "fix" (server throttle/retry, v3.0.2/3) targeted the wrong cause — it's not rate-limiting, it's that subagents can't reach the tool. Left as-is, ticks wasted 36 dispatches and risked reporting false "no-data" HOLDs.
