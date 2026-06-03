@@ -36,7 +36,8 @@ Ask only if assets are missing. Defaults are fine for everything else.
 - Call `check_losing_positions()`. If anything is returned, call `force_close_losing_positions()`. Runs every iteration regardless of strategy — mirrors the hard-coded guard in the original loop. Risk-reducing: auto-executes (no confirm) even in LIVE, and runs **before** the circuit-breaker gate so losers are trimmed even on a halted tick.
 
 ### 5. Circuit-breaker gate (R12) — blocks new entries
-- If `circuit_breaker_active` is true in the risk summary (surfaced by `get_risk_limits()` / the risk audit): place **no new entries** this tick. Force-close (step 4) and the resting exchange-side SL/TP brackets still protect open positions — only new risk-increasing entries are blocked. Print a STOPPED banner ("daily-loss circuit breaker active — no new trades until the UTC day boundary"), **skip the fan-out (steps 6–9)**, append one `hold` log line **per crypto in the watchlist** (step 10) so the halt is recorded for every asset, and return control to `trade-loop` with a "do not schedule the next wake" signal.
+- If `circuit_breaker_active` is true in the risk summary (surfaced by `get_risk_limits()` / the risk audit): place **no new entries** this tick. Force-close (step 4) and the resting exchange-side SL/TP brackets still protect open positions — only new risk-increasing entries are blocked. Print a STOPPED banner ("daily-loss circuit breaker active — no new trades until the UTC day boundary"), **skip the fan-out (steps 6–9)**, and append one `hold` log line **per crypto in the watchlist** (step 10) so the halt is recorded for every asset.
+- **Stop the loop on a breaker.** If a recurring cron job is driving this loop, delete it (`CronList` → `CronDelete <id>`) so an unattended LIVE job does not silently resume trading after the day boundary. Tell the user the loop stopped on a daily-loss breaker and to re-arm manually once they have reviewed the drawdown. (When this skill is run as a one-off, just report the halt.)
 
 ### 6. Fan out leaf analysis (R1, R2) — parallel
 - Build the **(crypto × strategy)** cross-product. For each pair, resolve an `analysis_timeframe` the strategy declares valid (its `timeframes` frontmatter): if the cadence interval is one of the strategy's declared `timeframes`, use it; otherwise use the strategy's **shortest declared `timeframes` value** (deterministic — never guess "nearest"). The cadence being finer than the analysis timeframe is expected and fine: the loop re-checks a higher-timeframe setup every cadence.
@@ -66,7 +67,11 @@ Present a compact table BEFORE executing:
 
 **Execution posture (confirm-on-new-entry):**
 - **Risk-reducing actions** (force-close already done in step 5, plus any `close_position`/derisk from step 7) **auto-execute** — no confirmation, in any mode.
-- **New risk-increasing entries**: in LIVE, pause for explicit GO / NO / adjust **unless** the autonomous flag is set (the invocation carried "execute approved trades automatically"). In DRY-RUN, never pause.
+- **New risk-increasing entries**:
+  - DRY-RUN → execute (simulated), never pause.
+  - LIVE + autonomous flag set → auto-execute.
+  - LIVE, interactive (a human is in this session) + no autonomous flag → pause for explicit GO / NO / adjust.
+  - LIVE, **headless/scheduled** (a background cron tick — no human to confirm) + no autonomous flag → **skip the entry** (do not hang waiting for input); record it as `hold` with reason "entry needs confirmation; autonomous off". This means a background loop only opens new positions when armed with "execute approved trades automatically"; otherwise it runs as monitor + de-risk only.
 
 For each approved trade, choose the tool by entry type:
 

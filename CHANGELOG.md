@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.1 — Fix the loop: background orchestrator model
+
+First live test of 0.10.0 surfaced two breakages and a clarified design. The loop is now an **orchestrator + background job**, not a same-chat loop.
+
+- **Bug: scheduled re-fire failed with `Unknown command: /hta-trade-cycle`.** The loop re-fired a slash command, which does not resolve in a scheduled/headless run. Fixed: the cron runs a **natural-language instruction that triggers the `trade-cycle` skill** for exactly one tick — never a slash command, and never `trade-loop` (which would arm another cron).
+- **Bug: `/loop 5m` created a detached background cron while the docs claimed "same-chat".** Reconciled: the loop **is** a background scheduled job by design now. `trade-loop` arms one `CronCreate` job (cadence → cron expression); each fire runs one `trade-cycle` tick in its own headless session.
+- **Orchestrator model.** The chat where you start the loop is a **control panel** — arm / `status` / modify / `close` — and does **not** run trading ticks itself. The heavy per-tick fan-out runs in the background, so the main session's context stays lean (the original context-pressure goal).
+- **Headless entry safety.** A background tick has no human to confirm, so without `execute approved trades automatically` it now **skips** new entries (monitor + de-risk only) instead of hanging on a GO/NO it can never receive.
+- **Stop semantics updated for a background job.** Closing the chat no longer stops trading — `close` (stop + flatten) or a plain "stop" both **delete the cron job**; `close` also flattens. A tripped circuit breaker deletes the job and requires manual re-arm.
+- New `status` control: shows the running job + recent per-asset results from the log (read-only).
+
 ## 0.10.0 — Looping trade cycle with subagent fan-out
 
 `/hta-trade-cycle <assets>` now starts a **persistent same-chat loop** instead of running a single iteration, and each iteration fans its per-asset analysis out to **parallel leaf subagents** (one per crypto × strategy).

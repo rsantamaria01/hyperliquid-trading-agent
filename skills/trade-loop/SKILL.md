@@ -1,72 +1,104 @@
 ---
 name: trade-loop
 user-invocable: false
-description: Drive a persistent same-chat trading loop — run one trade-cycle iteration, sleep the cadence interval, repeat — and handle the `close` keyword (stop the loop and flatten all positions). Dispatched by the hta-trade-cycle command. Use when the user starts a looping trade cycle or sends `hta-trade-cycle close`.
+description: Drive a recurring scheduled trading loop — arm a cron that runs one trade-cycle iteration every cadence interval — and handle the `close` keyword (stop the loop and flatten all positions). Dispatched by the hta-trade-cycle command. Use when the user starts a looping trade cycle or sends `hta-trade-cycle close`.
 ---
 
-# Trade loop (lifecycle + close)
+# Trade loop (orchestrator + background job)
 
-This skill owns the **loop**: it runs one `trade-cycle` iteration, schedules the next run after the cadence interval, and repeats — all in one live chat session. It also handles the `close` keyword. The per-iteration trading logic (fan-out, guards, consensus, execute, log) lives in the `trade-cycle` skill; this skill only sequences it and manages stop/flatten. Leaf and log field names: `skills/trade-loop/leaf-contract.md`, `LOG-SCHEMA.md`.
+This chat session is an **orchestrator / control panel** — it arms, inspects, modifies, and stops the loop, but it does **not** run trades itself. The trading runs in the **background**: a recurring scheduled job (cron) fires **one `trade-cycle` iteration every cadence interval, each in its own headless session**, independent of this chat. The per-tick trading logic (fan-out, guards, consensus, execute, log) lives in the `trade-cycle` skill. Leaf and log field names: `skills/trade-loop/leaf-contract.md`, `LOG-SCHEMA.md`.
+
+Control surface from this chat:
+- **Arm** — `hta-trade-cycle <assets> [...]` → create the background job.
+- **Status** — `hta-trade-cycle status` (or "how's the loop?") → show the job + recent results from the log.
+- **Modify** — `hta-trade-cycle <new assets/strategies/cadence>` while a job is running → re-arm with new params.
+- **Stop** — `hta-trade-cycle close` (stop + flatten) or "stop" (stop, leave positions open).
+
+> **Background job — survives this chat.** The cron keeps firing after you close this chat. In LIVE + autonomous that means **real orders continue with no one watching**. The only ways to stop it are `hta-trade-cycle close` (stop + flatten) or deleting the cron job (`CronDelete <id>`). Closing the chat does **not** stop trading.
 
 ## Inputs
 
 Parse `$ARGUMENTS`:
 
-- **`close`** — if the args are exactly the `close` keyword (see "close branch" for the match rule) → run the **close branch**. Otherwise → **start/run branch**.
-- **Assets** — required for the run branch. e.g. "BTC ETH SOL".
+- **`close`** — if the args are exactly the `close` keyword (see "close branch") → run the **close branch**. Otherwise → **arm branch**.
+- **Assets** — required for the arm branch. e.g. "BTC ETH SOL".
 - **Strategies** — default = one curated strategy (`trend-pullback`); multiple opt-in via `--strategy a,b`.
-- **Cadence interval** — how often the loop runs (default `5m`). Distinct from per-strategy analysis timeframes (handled inside `trade-cycle`).
-- **Autonomous flag** — true if the args contain the phrase "execute approved trades automatically". Authorizes autonomous LIVE entries; passed through to each `trade-cycle` tick.
+- **Cadence interval** — how often the job fires (default `5m`). Distinct from per-strategy analysis timeframes (handled inside `trade-cycle`).
+- **Autonomous flag** — true if the args contain the phrase "execute approved trades automatically". Authorizes autonomous LIVE entries; carried into the cron prompt.
 
-## Start / run branch
+## Arm branch
 
-### 1. Start-of-loop notice (first invocation only)
-- Print the cadence, assets, strategy set, and mode.
-- **In LIVE**, warn explicitly: "Ending this chat session stops active management. Open positions are left in place, protected by their resting exchange-side SL/TP brackets, but no further loop ticks (force-close, circuit-breaker, re-evaluation) run until you start the loop again. Use `hta-trade-cycle close` to stop *and* flatten."
-- If LIVE and the autonomous flag is **not** set, remind the user that each new entry will pause for GO/NO; if they want unattended entries they must restart with "execute approved trades automatically".
+The orchestrator session does **not** run trading ticks itself — all ticks run in the background job. Arming only validates and schedules.
 
-### 2. Run one iteration
-- Invoke the `trade-cycle` skill with the assets, cadence interval, strategy set, and autonomous flag. It performs mode check → snapshot + risk audit → circuit-breaker gate → force-close → fan-out → consensus → validate → execute → log → summary.
+### 1. Validate (and optional DRY-RUN preview)
+- Resolve assets, strategies (default `trend-pullback`; "all" → enumerate `strategies/*.md`), cadence, and the autonomous flag. Check the account is reachable (`trading_mode()` / `get_account_state()`) so a broken setup fails here, not silently in the background.
+- Offer (do not force) a **one-off DRY-RUN preview tick** so the user can see what a tick produces before scheduling LIVE. A preview runs `trade-cycle` once in DRY-RUN (simulated, no real orders) — never run a LIVE trading tick in the orchestrator.
 
-### 3. Decide whether to continue
-- If `trade-cycle` signaled a **circuit-breaker halt**: do **not** continue the loop (stop the driver below). Tell the user the loop is paused until the UTC day boundary and they can re-start it then. Stop.
-- Otherwise keep the loop running (step 4).
+### 2. Arm the recurring job (R9)
+Create **one** cron job that fires every cadence. **The cron prompt is a natural-language instruction that triggers the `trade-cycle` skill for one tick — NOT a slash command and NOT this `trade-loop` skill.** Slash commands do not resolve in scheduled/headless runs (`/hta-trade-cycle` → "Unknown command"), and pointing the cron at `trade-loop` would make it arm another cron. Use `CronCreate` with the cadence mapped to a cron expression:
 
-### 4. Repeat on the cadence (R9)
-The loop repeats by **re-firing the `hta-trade-cycle` command each cadence interval in the same chat session**. Use the harness's same-chat recurring mechanism — the **`/loop` skill** is the match (`/loop <cadence> /hta-trade-cycle <assets> [--strategy a,b] [execute approved trades automatically]`), which re-runs the slash command verbatim every interval and self-paces in one session.
+| Cadence | Cron expression |
+| --- | --- |
+| `5m` | `*/5 * * * *` |
+| `15m` | `*/15 * * * *` |
+| `1h` | `0 * * * *` |
+| `4h` | `0 */4 * * *` |
+| `1d` | `0 0 * * *` |
 
-- On a **fresh start**, run the first tick (step 2), then hand off to `/loop` so it re-fires the command each cadence. Each subsequent firing runs **exactly one tick** — it does not re-arm `/loop` (keep **one** driver only; never start a second).
-- Re-firing the exact command string is what carries the loop's state (assets, strategy set, cadence, autonomous flag) across each repeat — there is no separately persisted state to manage.
-- If the client does not provide `/loop`, fall back to the harness's own recurring/wake primitive, re-firing the same command string each cadence. Do not hard-code a specific tool name; what matters is "re-run this command every cadence in this session." (Background/cron schedulers are out of scope — same-chat only.)
+Cron **prompt** template (fill in the parsed values):
 
-### 5. Loop-state hygiene (R15)
-- Each wake is effectively a fresh tick. Rebuild what the tick needs from (a) the re-fired command args, (b) the **log** (`log.jsonl` — last lines for prior decisions/positions), and (c) live `get_account_state()` — **not** from accumulated chat reasoning. Do not carry full prior-tick analysis forward in context; the durable record is the log. This keeps the main context from growing unbounded across many ticks.
+> Run one `trade-cycle` iteration on <ASSETS> using strategies <STRATEGIES>, cadence <CADENCE>. This is a single tick of an existing scheduled loop — run exactly one iteration and do **not** create or modify any schedule. [If autonomous:] Execute approved trades automatically. Report what you did.
+
+- Arm **exactly one** job. Before creating, `CronList` and delete any existing trade-cycle job for the same assets so duplicates can't stack.
+- Note the returned job id and its auto-expiry (the harness expires cron jobs after a fixed window, e.g. 7 days) in the arm summary.
+
+### 3. Arm summary (LIVE guardrails)
+Print a summary table (job id, cron expr, assets, strategies, cadence, autonomous on/off, expiry) and, in LIVE, these warnings prominently:
+- **This is a background job. It keeps trading after you close this chat.** Stop it with `hta-trade-cycle close` (stop + flatten) or by deleting the job (`CronDelete <id>`).
+- If autonomous is ON: **every new entry fires real orders with no confirmation.** Each tick still runs force-close + the circuit-breaker gate + `validate_trade`, and positions open with exchange-side SL/TP brackets — but direction/thesis are not human-reviewed.
+- Worst-case `close`-to-flatten latency is up to one cadence interval (the job only stops cleanly at a tick boundary / when you delete it).
+- Recommend starting with DRY-RUN and a small asset set.
+
+## Status branch (view results)
+
+When the user asks for status (`hta-trade-cycle status`, "how's the loop?", "show results"):
+- `CronList` → is a trade-cycle job alive? Show its id, cron expression, assets, autonomous on/off, and expiry.
+- Read the `log.jsonl` tail and present a compact per-asset summary of recent ticks: last decision, strategies pass count, any open position + PnL, and the latest `iteration_id`/timestamp. Pull live position PnL from `get_account_state()`.
+- This is read-only — it never places or cancels orders and never touches the job.
+
+## Modify branch (change a running loop)
+
+When the user changes params while a job is running (different assets, strategies, cadence, or toggling autonomous):
+- `CronList` → find the existing trade-cycle job, `CronDelete` it, then arm a fresh job with the new params (the Arm branch). Keep **one** job — never leave two.
+- Confirm the old job was removed and show the new arm summary. Do not flatten positions on a modify (use `close` for that).
+
+## Circuit-breaker behavior (per tick, R12)
+
+Each scheduled tick re-checks the breaker itself (inside `trade-cycle`). On an active breaker the tick places no new entries. **Conservative stop:** when a tick reports the breaker active, it should also **delete the cron job** and tell the user the loop stopped on a daily-loss breaker and must be manually re-armed after they review the drawdown — an unattended LIVE job must not silently resume trading across the day boundary without a human ack.
 
 ## Close branch (R10, R13, R14)
 
-Trigger only when the user's input is the **explicit `close` command** — `hta-trade-cycle close` (or args that are exactly the bare keyword `close`). A normal message that merely *contains* the word "close" in prose (e.g. "should I close BTC?") does **not** trigger a flatten; if intent is ambiguous, ask before flattening.
+Trigger only when the user's input is the **explicit `close` command** — `hta-trade-cycle close` (or args that are exactly the bare keyword `close`). A message that merely *contains* "close" in prose (e.g. "should I close BTC?") does **not** flatten; if intent is ambiguous, ask first.
 
 Then:
-1. **Stop the loop driver first** so no tick re-fires after the flatten (no zombie iteration). End the active `/loop` (or whichever recurring mechanism is driving this session's loop) — identify it from the running session, do not rely on a remembered job id. Do this **before** flattening so a re-fire cannot race the close.
-2. **Flatten all open positions regardless of PnL.** Read positions via `get_account_state()`; for each, call `close_position(asset)`. Retry each failed close up to **3 times** with a short backoff.
-3. **Honest reporting (R13):** list each position closed (asset, exit, realized PnL). For any that still failed after retries, report it explicitly with current size + unrealized PnL and tell the user it is **still open** and needs manual intervention. **Never print "account is flat" unless every position is confirmed closed.**
+1. **Delete the cron job first** so no tick fires during/after the flatten. `CronList`, find the trade-cycle job (match by the prompt/assets), `CronDelete <id>`. Do this **before** flattening so a scheduled fire cannot race the close. If you cannot positively identify the job, list the candidates and ask — do not leave an unknown LIVE job running.
+2. **Flatten all open positions regardless of PnL.** Read positions via `get_account_state()`; for each, `close_position(asset)`, retrying each failure up to **3 times** with a short backoff.
+3. **Honest reporting (R13):** list each position closed (asset, exit, realized PnL). For any that failed after retries, report it explicitly with size + unrealized PnL and that it is **still open** and needs manual intervention. **Never print "account is flat" unless every position is confirmed closed.**
 4. Append a `close`/`derisk` log line per affected crypto.
-5. Stop the loop. Do not schedule another wake.
+5. Confirm the job is deleted and the loop is stopped.
 
-## Mid-loop messages that are not `close` (R14)
+## Stop without flatten (R11)
 
-If the user sends any other message while the loop is active:
-- **Do not flatten** and **do not silently drop it.** Answer the question or handle the request (e.g. "how is BTC doing?" → report from `get_account_state()`), then continue the loop on its existing schedule.
-- If the message is a stop intent other than `close` (e.g. "stop", "pause the loop"), treat it as a **normal stop (R11)**: stop the loop driver (end the `/loop`) and leave open positions untouched (they remain protected by their exchange-side brackets). Confirm that positions are left open and that `close` is the way to also flatten.
+If the user says "stop"/"pause" (not `close`): **delete the cron job** and leave open positions in place, protected by their resting exchange-side SL/TP brackets. Confirm positions are left open and that `close` is how to also flatten. (Closing the chat alone does **not** stop the job — it must be deleted.)
 
-## Normal stop (R11)
+## Mid-loop questions (R14)
 
-A normal stop — the session ends, or the user asks to stop without `close` — ends the loop and **leaves open positions in place**, protected by their resting exchange-side SL/TP brackets. No further ticks run. Only the `close` keyword flattens.
+For any other message while the loop is armed: answer it (e.g. "how is BTC?" → report from `get_account_state()`) without flattening and without touching the job. Only `close`/`stop` change the job.
 
-## Worst-case close latency
+## Loop-state hygiene (R15)
 
-While the loop is idle waiting for a scheduled wake, a `close` typed mid-sleep is acted on at the next opportunity; in the worst case that is up to **one cadence interval** away (5m by default, longer for larger cadences). For a faster emergency exit, use a short cadence or close positions directly on the exchange. This is documented in the README.
+Each scheduled tick is a fresh context. The tick rebuilds what it needs from its cron prompt args, the **log** (`log.jsonl` tail for prior decisions/positions + the next `iteration_id`), and live `get_account_state()` — never from accumulated chat reasoning. There is no growing chat context across ticks because each fire is independent.
 
 ## Mode
 
-DRY-RUN is the default and the required pre-LIVE validation path. Validate the full loop — including a mid-loop `close` — in DRY-RUN before any LIVE use. Keep this skill `user-invocable: false` so it does not add a second slash entry alongside the `hta-trade-cycle` command.
+DRY-RUN is the default and the required pre-LIVE validation path. Validate the full loop — arm, a few ticks, and a `close` — in DRY-RUN before any LIVE use. Keep this skill `user-invocable: false` so it does not add a second slash entry alongside the `hta-trade-cycle` command.
