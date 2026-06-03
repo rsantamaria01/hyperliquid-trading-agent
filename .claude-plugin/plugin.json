@@ -18,6 +18,6 @@
       ]
     }
   },
-  "skills": ["./skills/setup", "./skills/settings", "./skills/strategy", "./skills/market-analysis", "./skills/trade-cycle", "./skills/portfolio-review", "./skills/risk-audit"],
+  "skills": ["./skills/setup", "./skills/settings", "./skills/strategy", "./skills/market-analysis", "./skills/trade-cycle", "./skills/trade-loop", "./skills/portfolio-review", "./skills/risk-audit"],
   "commands": ["./commands"]
 }

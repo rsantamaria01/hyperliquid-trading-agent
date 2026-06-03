@@ -1,12 +1,17 @@
 ---
-description: Run one full trading-loop iteration on the given assets, optionally using a strategy
-argument-hint: <asset1> [asset2 ...] [--interval 5m|15m|1h|4h|1d] [--strategy <name>]
+description: Start a looping trade cycle on the given assets (fan-out analysis + auto-repeat), or `close` to stop and flatten
+argument-hint: <asset1> [asset2 ...] [--interval 5m|15m|1h|4h|1d] [--strategy a[,b]] | close
 ---
 
-Run the `trade-cycle` skill on the assets in $ARGUMENTS (space-separated). If no assets are given, ask the user for a watchlist.
+Dispatch to the `trade-loop` skill with `$ARGUMENTS`.
 
-Defaults: interval `5m`, no strategy (default heuristics).
+- **`hta-trade-cycle <assets> [...]`** — start the loop. It runs one fan-out trade-cycle iteration, then repeats every cadence interval in this chat session. If no assets are given, ask the user for a watchlist (don't start an empty loop).
+- **`hta-trade-cycle close`** — stop the loop and flatten **all** positions regardless of PnL. A normal stop (ending the session, or "stop") leaves positions open under their exchange-side SL/TP brackets — only `close` flattens.
 
-If `--strategy <name>` is passed, load `strategies/<name>.md` from the plugin folder and follow its rules instead of the default heuristics.
+Defaults and args:
+
+- **`--interval`** — the loop **cadence** (how often it runs). Default `5m`. This is not the analysis timeframe — each strategy is analyzed on a timeframe it declares valid.
+- **`--strategy a[,b]`** — strategies to run. Default is a single curated strategy (`trend-pullback`). Multiple are opt-in; mixing trend and counter-trend strategies often aggregates to HOLD by design.
+- Add the phrase **"execute approved trades automatically"** to authorize autonomous LIVE entries; otherwise each new entry pauses for GO/NO in LIVE (risk-reducing actions always auto-run).
 
 Always print the trading mode (DRY-RUN vs LIVE) at the top of your response.
