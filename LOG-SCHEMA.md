@@ -1,10 +1,10 @@
 # Trade-loop event log schema (`log.jsonl`)
 
-The looping trade cycle (`trade-loop` skill, driving `trade-cycle`) appends to `hl-plugin/log.jsonl`.
+The looping trade cycle (`trade-loop` skill, driving `trade-cycle`) appends to **`log.jsonl` in the workspace directory** — the folder the user is running the chat in (the current working directory / `CLAUDE_PROJECT_DIR`), next to their `.env` and `.hl-mcp/`. **Not** in the plugin's install/cache directory. This keeps the log where the user can find it and scopes it per workspace (like settings).
 
 **Format:** [JSON Lines](https://jsonlines.org/) — one JSON object per line, append-only. One line is written **per crypto, per iteration**. The file is created on first append; nothing reads it at runtime (it is a record for later analysis).
 
-**Local-only.** The log holds financial data (order sizes, SL/TP prices, PnL). It is git-ignored (`hl-plugin/.gitignore`) and must never be committed or shared. There is no tracked seed file.
+**Local-only.** The log holds financial data (order sizes, SL/TP prices, PnL). Add `log.jsonl` to the workspace `.gitignore` (`/hta-setup` does this) — never commit or share it. There is no seed file.
 
 > Field-level names for the per-strategy results and the order block are the **single source of truth in `skills/trade-loop/leaf-contract.md`** (the leaf verdict contract), which pins them. This doc owns the top-level event structure; `leaf-contract.md` owns the inner field names. The verdict→log mapping is: verdict `strategy`→`strategies[].name`, `proposed_sl`/`proposed_tp`→`order.sl`/`order.tp`; `passed`/`score`/`signal` carry through unchanged.
 

@@ -63,7 +63,7 @@ Print a summary table (job id, cron expr, assets, strategies, cadence, autonomou
 
 When the user asks for status (`hta-trade-cycle status`, "how's the loop?", "show results"):
 - `CronList` → is a trade-cycle job alive? Show its id, cron expression, assets, autonomous on/off, and expiry.
-- Read the `log.jsonl` tail and present a compact per-asset summary of recent ticks: last decision, strategies pass count, any open position + PnL, and the latest `iteration_id`/timestamp. Pull live position PnL from `get_account_state()`.
+- Read the `log.jsonl` tail (in the workspace dir — `"$CLAUDE_PROJECT_DIR/log.jsonl"`, else `./log.jsonl`) and present a compact per-asset summary of recent ticks: last decision, strategies pass count, any open position + PnL, and the latest `iteration_id`/timestamp. Pull live position PnL from `get_account_state()`.
 - This is read-only — it never places or cancels orders and never touches the job.
 
 ## Modify branch (change a running loop)
@@ -97,7 +97,7 @@ For any other message while the loop is armed: answer it (e.g. "how is BTC?" →
 
 ## Loop-state hygiene (R15)
 
-Each scheduled tick is a fresh context. The tick rebuilds what it needs from its cron prompt args, the **log** (`log.jsonl` tail for prior decisions/positions + the next `iteration_id`), and live `get_account_state()` — never from accumulated chat reasoning. There is no growing chat context across ticks because each fire is independent.
+Each scheduled tick is a fresh context. The tick rebuilds what it needs from its cron prompt args, the **log** (workspace `log.jsonl` tail for prior decisions/positions + the next `iteration_id`), and live `get_account_state()` — never from accumulated chat reasoning. There is no growing chat context across ticks because each fire is independent.
 
 ## Mode
 
