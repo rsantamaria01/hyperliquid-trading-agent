@@ -61,7 +61,7 @@ The agent wallet must be created on Hyperliquid first (app.hyperliquid.xyz → S
 
 The `@v0.8.0` pins the install to that release tag — bump it to install a newer version. Browse tags on the [Releases](https://github.com/rsantamaria01/hyperliquid-trading-agent/releases) page.
 
-On enable, the plugin spawns `uvx --from git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.4 hyperliquid-trading-mcp` automatically. The server writes a startup banner to **stderr**:
+On enable, the plugin spawns `uvx --from git+https://github.com/rsantamaria01/hyperliquid-trading-mcp@v3.0.5 hyperliquid-trading-mcp` automatically. The server writes a startup banner to **stderr**:
 
 ```
 hyperliquid-trading-mcp [DRY-RUN] — workspace: /path/to/workspace
