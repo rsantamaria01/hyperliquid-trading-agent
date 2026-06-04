@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.2 — Pin server v3.0.5 (zero-balance fix + risk-cap defaults)
+
+- Server pin `v3.0.4` → `v3.0.5`.
+- Picks up the fix for `get_account_state` intermittently reporting ~$0 `balance`/`total_value` while a position was open (equity is now read from `marginSummary.accountValue`, not the volatile top-level `withdrawable`).
+- Also raises the server's default risk caps (`max_position_pct` 10→25, `max_total_exposure_pct` 50→75) and loosens `max_loss_per_position_pct` 20→60, `daily_loss_circuit_breaker_pct` 10→40, `mandatory_sl_pct` 5→50. All remain runtime-editable via `update_settings`.
+
 ## 0.11.1 — Log via MCP tool (no per-tick permission prompt)
 
 The loop logged with Bash `>>`, which prompts for permission every tick and can't be auto-allowed (the command varies each time). Switched to MCP tools (server `v3.0.4`):
